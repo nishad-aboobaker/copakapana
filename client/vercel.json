@@ -4,7 +4,7 @@
   "installCommand": "npm ci",
   "buildCommand": "npm run build:prod",
   "outputDirectory": "dist/client/browser",
-  "rewrites": [{ "source": "/((?!.*\.).*)", "destination": "/index.html" }],
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
     { "source": "/ngsw-worker.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
     { "source": "/ngsw.json", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
