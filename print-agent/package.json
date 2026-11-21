@@ -1,0 +1,22 @@
+{
+  "name": "kot-print-agent",
+  "version": "1.0.0",
+  "description": "KOT & Billing System \u2014 Bill Print Agent (runs on restaurant PC; KOTs go to station screens)",
+  "main": "dist/agent.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/agent.ts",
+    "build": "tsc",
+    "start": "node dist/agent.js",
+    "test-print": "tsc && node dist/test-print.js",
+    "list-printers": "tsc && node dist/test-print.js --list"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "socket.io-client": "^4.7.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.5"
+  }
+}

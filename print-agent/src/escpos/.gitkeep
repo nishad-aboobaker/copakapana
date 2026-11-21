@@ -1,0 +1,1 @@
+New-Item -ItemType Directory -Force -Path print-agent\src\escpos, print-agent\src\printer, print-agent\src\queue
