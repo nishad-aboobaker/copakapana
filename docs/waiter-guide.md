@@ -19,6 +19,7 @@
    - Tap the dish name to choose a size (Half / Full), quantity and a kitchen note. Quick notes like *Less spicy* are one tap.
 3. The orange bar at the bottom shows how many items and the total. Tap **Review items**.
 4. Adjust quantities, then tap **Send to kitchen**. Each kitchen station gets its ticket on its screen right away.
+   - Dishes tagged **Counter** (soft drinks, water) are not sent to the kitchen — serve them from the counter. If the order has only counter items, the button says **Add to order**.
 
 ## 4. After sending
 - **Sent** shows everything on the order with live kitchen status: *Sent → Preparing → Ready*.

@@ -24,6 +24,7 @@
 ## 4. Menu & Pricing Designer (`/admin/menu`)
 - **Categories**: Create and reorder categories (e.g., Starters, Fried Chicken, Biryani, Juices).
 - **Dishes**: Add new items with base price, veg/non-veg flag, portion variants (e.g. Half / Full / Family Pack), and kitchen routing station (`fried_chicken`, `juice`, `main`).
+- **Served from the counter**: Turn this on for dishes that need no cooking, such as soft drinks and water bottles. Waiters add them to the bill without sending a ticket to any kitchen screen. They show a **Counter** tag in the menu.
 - **Instant Availability Toggle**: Click the ⚡ toggle next to any item to instantly mark it "Out of Stock". The waiter app will immediately prevent ordering that item in real-time.
 
 ---

@@ -29,6 +29,8 @@ interface MenuItem {
   description?: string;
   portions?: { label: string; price: number }[];
   available: boolean;
+  /** Served from the counter (e.g. soft drinks) — no kitchen ticket. */
+  skipKitchen?: boolean;
 }
 
 interface CartItem {
@@ -39,6 +41,7 @@ interface CartItem {
   portion?: string;
   note?: string;
   station: string;
+  skipKitchen?: boolean;
 }
 
 type Tab = 'tables' | 'orders' | 'ready';
@@ -247,6 +250,7 @@ const TICKET_STATUS: Record<string, string> = { new: 'Sent', preparing: 'Prepari
                       <strong>{{ item.name }}</strong>
                       <small class="num">
                         ₹{{ item.price }}{{ item.portions?.length ? ' · ' + item.portions!.length + ' sizes' : '' }}
+                        @if (item.skipKitchen) { <span class="counter-tag">Counter</span> }
                       </small>
                     </div>
                     @if (!item.available) {
@@ -286,6 +290,7 @@ const TICKET_STATUS: Record<string, string> = { new: 'Sent', preparing: 'Prepari
                         <small class="note"><app-icon name="pencil" [size]="12" /> {{ c.note }}</small>
                       }
                       <small class="num">₹{{ c.price }} each</small>
+                      @if (c.skipKitchen) { <small class="counter-note">Counter item · no kitchen ticket</small> }
                     </div>
                     <div class="stepper">
                       <button (click)="changeQty(c, -1)" [attr.aria-label]="c.qty === 1 ? 'Remove' : 'Decrease'">
@@ -348,6 +353,7 @@ const TICKET_STATUS: Record<string, string> = { new: 'Sent', preparing: 'Prepari
                   <span class="qty num">{{ item.qty }}×</span>
                   <div class="cl-main">
                     <strong>{{ item.name }}{{ item.portion ? ' · ' + item.portion : '' }}</strong>
+                    @if (item.skipKitchen && item.status !== 'cancelled') { <small>From the counter</small> }
                     @if (item.note) {
                       <small class="note">{{ item.note }}</small>
                     }
@@ -404,7 +410,11 @@ const TICKET_STATUS: Record<string, string> = { new: 'Sent', preparing: 'Prepari
                 @if (isSubmitting) {
                   <span class="spinner"></span> Sending…
                 } @else {
-                  <app-icon name="send" /> Send to kitchen · ₹{{ cartTotalPrice }}
+                  @if (cartCounterOnly) {
+                    <app-icon name="plus" /> Add to order · ₹{{ cartTotalPrice }}
+                  } @else {
+                    <app-icon name="send" /> Send to kitchen · ₹{{ cartTotalPrice }}
+                  }
                 }
               </button>
             }
@@ -648,6 +658,8 @@ const TICKET_STATUS: Record<string, string> = { new: 'Sent', preparing: 'Prepari
       .cl-main { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
       .cl-main strong { color: var(--text-strong); font-weight: 600; }
       .cl-main small { color: var(--text-muted); font-size: var(--fs-xs); }
+      .counter-note { color: var(--info) !important; }
+      .counter-tag { display: inline-block; margin-left: 0.35rem; padding: 0 0.4rem; border-radius: 6px; background: var(--info-soft); color: var(--info); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em; vertical-align: 1px; }
       .note { display: inline-flex; align-items: center; gap: 0.25rem; color: var(--warning) !important; font-style: italic; }
       .cl-amt { font-weight: 700; color: var(--text-strong); min-width: 56px; text-align: right; }
       .sent-line .qty { font-weight: 700; color: var(--text-muted); min-width: 28px; }
@@ -911,6 +923,11 @@ export class WaiterMainComponent implements OnInit, OnDestroy {
     return this.cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   }
 
+  /** Only counter items (e.g. soft drinks) in the cart — nothing goes to a kitchen screen. */
+  get cartCounterOnly(): boolean {
+    return this.cart.length > 0 && this.cart.every((c) => c.skipKitchen);
+  }
+
   qtyInCart(menuItemId: string): number {
     return this.cart.filter((c) => c.menuItemId === menuItemId).reduce((s, c) => s + c.qty, 0);
   }
@@ -1115,7 +1132,7 @@ export class WaiterMainComponent implements OnInit, OnDestroy {
       this.openItemSheet(item);
       return;
     }
-    this.addToCart({ menuItemId: item._id, name: item.name, price: item.price, qty: 1, station: item.station });
+    this.addToCart({ menuItemId: item._id, name: item.name, price: item.price, qty: 1, station: item.station, skipKitchen: item.skipKitchen });
     navigator.vibrate?.(15);
   }
 
@@ -1141,6 +1158,7 @@ export class WaiterMainComponent implements OnInit, OnDestroy {
       portion: this.sheetSelectedPortion?.label,
       note: this.sheetNote.trim() || undefined,
       station: dish.station,
+      skipKitchen: dish.skipKitchen,
     });
     this.selectedDishSheet = null;
   }
@@ -1223,11 +1241,12 @@ export class WaiterMainComponent implements OnInit, OnDestroy {
 
   private afterSend(queued: boolean): void {
     const count = this.cartTotalCount;
+    const counterOnly = this.cartCounterOnly;
     this.cart = [];
     this.isSubmitting = false;
     this.pane = 'sent';
     if (queued) this.ui.warning("You're offline — these items will send automatically when you reconnect.", 'Queued');
-    else this.ui.success(`${count} item${count === 1 ? '' : 's'} sent to the kitchen`);
+    else this.ui.success(`${count} item${count === 1 ? '' : 's'} ${counterOnly ? 'added to the order' : 'sent to the kitchen'}`);
   }
 
   private sendFailed(err: any): void {

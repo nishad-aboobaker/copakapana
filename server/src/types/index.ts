@@ -99,6 +99,8 @@ export interface OrderItemShape {
   portion?: string;
   note?: string;
   station: Station;
+  /** Served from the counter (e.g. soft drinks) — billed but never sent to a kitchen screen. */
+  skipKitchen?: boolean;
   status: ItemStatus;
 }
 

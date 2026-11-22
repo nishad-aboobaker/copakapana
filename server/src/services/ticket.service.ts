@@ -34,6 +34,9 @@ export class TicketError extends Error {
 
 const toTicketItem = (i: OrderItemLike): ITicketItem => ({ name: i.name, qty: i.qty, portion: i.portion, note: i.note });
 
+/** Counter items (e.g. soft drinks) are billed but never shown on a kitchen screen. */
+const forKitchen = <T extends OrderItemLike>(items: T[]): T[] => items.filter((i) => !i.skipKitchen);
+
 const FLOOR_LABEL: Record<string, string> = { ground: 'Ground Floor', first: 'First Floor' };
 
 export class TicketService {
@@ -99,7 +102,7 @@ export class TicketService {
     const context = await this.buildContext(order);
     const created: ITicket[] = [];
 
-    for (const [station, stationItems] of this.splitByStation(items).entries()) {
+    for (const [station, stationItems] of this.splitByStation(forKitchen(items)).entries()) {
       const ticket = await Ticket.create({
         number: await Counter.nextSeq(`ticket_${station}`),
         orderId: order._id,
@@ -126,6 +129,8 @@ export class TicketService {
     cancelledItems: OrderItemLike[],
     userId?: mongoose.Types.ObjectId,
   ): Promise<ITicket[]> {
+    addedItems = forKitchen(addedItems);
+    cancelledItems = forKitchen(cancelledItems);
     const affected = new Set<Station>();
     addedItems.forEach((i) => affected.add(i.station));
     cancelledItems.forEach((i) => affected.add(i.station));

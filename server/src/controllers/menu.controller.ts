@@ -122,7 +122,7 @@ export const listAllItems = async (req: Request, res: Response): Promise<void> =
 };
 
 export const createItem = async (req: Request, res: Response): Promise<void> => {
-  const { name, printName, categoryId, price, station, isVeg, description, portions } = req.body;
+  const { name, printName, categoryId, price, station, isVeg, description, portions, skipKitchen } = req.body;
 
   if (!name || !categoryId || price === undefined || !station) {
     res.status(400).json({
@@ -144,6 +144,7 @@ export const createItem = async (req: Request, res: Response): Promise<void> => 
     categoryId,
     price: Number(price),
     station,
+    skipKitchen: Boolean(skipKitchen),
     isVeg: Boolean(isVeg),
     description,
     portions: portions || [],
@@ -166,7 +167,7 @@ export const createItem = async (req: Request, res: Response): Promise<void> => 
 
 export const updateItem = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { name, printName, categoryId, price, station, isVeg, description, portions, available, active } = req.body;
+  const { name, printName, categoryId, price, station, isVeg, description, portions, available, active, skipKitchen } = req.body;
 
   const item = await MenuItem.findById(id);
   if (!item) {
@@ -182,6 +183,7 @@ export const updateItem = async (req: Request, res: Response): Promise<void> => 
   if (price !== undefined) item.price = Number(price);
   if (station !== undefined) item.station = station;
   if (isVeg !== undefined) item.isVeg = Boolean(isVeg);
+  if (skipKitchen !== undefined) item.skipKitchen = Boolean(skipKitchen);
   if (description !== undefined) item.description = description;
   if (portions !== undefined) item.portions = portions;
   if (available !== undefined) item.available = Boolean(available);

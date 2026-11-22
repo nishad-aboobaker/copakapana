@@ -100,6 +100,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       portion: itemReq.portion,
       note: itemReq.note,
       station: menuItem.station,
+      skipKitchen: !!menuItem.skipKitchen,
       status: ItemStatus.Active,
     });
   }
@@ -292,6 +293,7 @@ export const addItemsToOrder = async (req: Request, res: Response): Promise<void
       portion: itemReq.portion,
       note: itemReq.note,
       station: menuItem.station,
+      skipKitchen: !!menuItem.skipKitchen,
       status: ItemStatus.Active,
     };
 

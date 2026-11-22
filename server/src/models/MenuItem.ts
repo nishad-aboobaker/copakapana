@@ -12,6 +12,8 @@ export interface IMenuItem extends Document {
   categoryId: mongoose.Types.ObjectId;
   price: number;
   station: Station;
+  /** Served from the counter (e.g. soft drinks): added to the bill without a kitchen ticket. */
+  skipKitchen: boolean;
   isVeg: boolean;
   description?: string;
   portions: IPortion[];
@@ -56,6 +58,10 @@ const menuItemSchema = new Schema<IMenuItem>(
       enum: Object.values(Station),
       required: [true, 'Kitchen station is required'],
       index: true,
+    },
+    skipKitchen: {
+      type: Boolean,
+      default: false,
     },
     isVeg: {
       type: Boolean,

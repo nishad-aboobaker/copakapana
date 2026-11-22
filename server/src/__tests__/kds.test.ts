@@ -5,7 +5,7 @@ import { Order } from '../models/Order';
 import { Table } from '../models/Table';
 import { User } from '../models/User';
 import { TicketError, TicketService } from '../services/ticket.service';
-import { cancelOrder } from '../controllers/orders.controller';
+import { addItemsToOrder, cancelOrder, createOrder } from '../controllers/orders.controller';
 import { getMenu, setStationItemAvailability } from '../controllers/menu.controller';
 import { MenuItem } from '../models/MenuItem';
 import { MenuCategory } from '../models/MenuCategory';
@@ -287,5 +287,47 @@ describe('Station screens manage stock', () => {
     const r = await run(setStationItemAvailability, { params: { id: wings.id }, body: { available: false }, user: screen });
     expect(r.status).toBe(403);
     expect((await MenuItem.findById(wings.id))!.available).toBe(true);
+  });
+});
+
+describe('Counter items (no kitchen ticket)', () => {
+  const run = async (handler: any, req: any) => {
+    let status = 200;
+    let json: any;
+    const res: any = { status: (c: number) => ((status = c), res), json: (j: any) => ((json = j), res), setHeader: () => res };
+    await handler(req, res);
+    return { status, json };
+  };
+
+  test('soft drinks are billed on the order but never reach a station screen', async () => {
+    await Promise.all([MenuItem.deleteMany({}), MenuCategory.deleteMany({})]);
+    const waiter = await User.create({ name: 'anu', role: Role.Waiter, pinHash: 'x' });
+    const table = await Table.create({ name: 'G1', number: 'G1', floor: TableFloor.Ground, capacity: 4 });
+    const cat = await MenuCategory.create({ name: 'Drinks', order: 1 });
+    const pepsi = await MenuItem.create({ name: 'Pepsi', categoryId: cat._id, price: 40, station: Station.Juice, isVeg: true, skipKitchen: true });
+    const shake = await MenuItem.create({ name: 'Chikku Shake', categoryId: cat._id, price: 90, station: Station.Juice, isVeg: true });
+    const user = { id: waiter.id, role: Role.Waiter, name: 'anu' };
+
+    // Counter-only order: created and billable, no tickets at all
+    const created = await run(createOrder, {
+      user,
+      body: { type: OrderType.DineIn, tableId: table.id, clientRequestId: 'c1', items: [{ menuItemId: pepsi.id, qty: 2 }] },
+    });
+    expect(created.status).toBe(201);
+    const orderId = created.json.order._id;
+    expect(created.json.order.items[0]).toMatchObject({ name: 'Pepsi', qty: 2, skipKitchen: true });
+    expect(await Ticket.countDocuments({ orderId })).toBe(0);
+    expect(emitted.some((e) => e.event === 'ticket:new')).toBe(false);
+
+    // Mixed add: only the shake goes to the juice screen
+    const added = await run(addItemsToOrder, {
+      user,
+      params: { id: orderId },
+      body: { clientRequestId: 'a1', items: [{ menuItemId: pepsi.id, qty: 1 }, { menuItemId: shake.id, qty: 1 }] },
+    });
+    expect(added.status).toBeLessThan(300);
+    const tickets = await Ticket.find({ orderId }).lean();
+    expect(tickets).toHaveLength(1);
+    expect(tickets[0].items.map((i) => i.name)).toEqual(['Chikku Shake']);
   });
 });

@@ -6,7 +6,7 @@ export interface IOrderItemDocument extends OrderItemShape {
 }
 
 /** Minimal item shape needed to build a ticket line. */
-export type OrderItemLike = Pick<OrderItemShape, 'name' | 'qty' | 'portion' | 'note' | 'station'>;
+export type OrderItemLike = Pick<OrderItemShape, 'name' | 'qty' | 'portion' | 'note' | 'station' | 'skipKitchen'>;
 
 export interface IOrder extends Document {
   number: number;
@@ -54,6 +54,10 @@ const orderItemSchema = new Schema<IOrderItemDocument>(
       type: String,
       enum: Object.values(Station),
       required: true,
+    },
+    skipKitchen: {
+      type: Boolean,
+      default: false,
     },
     status: {
       type: String,

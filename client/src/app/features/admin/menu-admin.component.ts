@@ -29,6 +29,7 @@ interface MenuItemData {
   categoryId: string | { _id: string; name?: string };
   price: number;
   station: Station;
+  skipKitchen?: boolean;
   isVeg: boolean;
   description?: string;
   portions: Portion[];
@@ -161,7 +162,13 @@ const STATIONS: { key: Station; label: string }[] = [
                           </div>
                         </div>
                       </td>
-                      <td><span class="badge">{{ stationLabel(item.station) }}</span></td>
+                      <td>
+                        @if (item.skipKitchen) {
+                          <span class="badge badge-info" title="Billed without a kitchen ticket">Counter</span>
+                        } @else {
+                          <span class="badge">{{ stationLabel(item.station) }}</span>
+                        }
+                      </td>
                       <td class="text-right num text-strong">
                         @if (item.portions?.length) { ₹{{ minPrice(item) }}–{{ maxPrice(item) }} } @else { ₹{{ item.price }} }
                       </td>
@@ -248,7 +255,7 @@ const STATIONS: { key: Station; label: string }[] = [
                       <button type="button" [class.active]="f.station === s.key" (click)="f.station = s.key">{{ s.label }}</button>
                     }
                   </div>
-                  <span class="hint">Tickets for this dish go to that station's screen.</span>
+                  <span class="hint">{{ f.skipKitchen ? 'Used for reports only — this dish is not sent to a kitchen screen.' : "Tickets for this dish go to that station's screen." }}</span>
                 </div>
                 <div class="field">
                   <span class="label">Type</span>
@@ -258,6 +265,12 @@ const STATIONS: { key: Station; label: string }[] = [
                   </div>
                 </div>
               </div>
+
+              <label class="switch switch-block">
+                <input type="checkbox" [checked]="f.skipKitchen" (change)="f.skipKitchen = $any($event.target).checked" />
+                <span class="track"></span>
+                <span><strong>Served from the counter</strong><small>Waiters add it to the bill without sending a ticket to the kitchen — e.g. soft drinks, water bottles, ice cream cups.</small></span>
+              </label>
 
               <div class="field">
                 <span class="label">Price</span>
@@ -341,6 +354,11 @@ const STATIONS: { key: Station; label: string }[] = [
       .actions { display: inline-flex; gap: 0.15rem; }
       .danger:hover:not(:disabled) { color: var(--danger); background: var(--danger-soft); }
       .switch { min-height: 32px; }
+      .switch-block { align-items: flex-start; }
+      .switch-block .track { margin-top: 0.1rem; }
+      .switch-block span:last-child { display: flex; flex-direction: column; gap: 0.1rem; line-height: 1.3; }
+      .switch-block small { font-weight: 400; color: var(--text-muted); font-size: var(--fs-xs); }
+      .switch-block strong { color: var(--text-strong); }
       .segmented.full { display: flex; }
       .segmented.full button { flex: 1; justify-content: center; }
       .price { max-width: 200px; margin-top: 0.5rem; }
@@ -419,7 +437,7 @@ export class MenuAdminComponent implements OnInit, OnDestroy {
   }
 
   private emptyForm() {
-    return { name: '', printName: '', categoryId: '', price: 0, station: 'main' as Station, isVeg: false, description: '', portions: [] as Portion[] };
+    return { name: '', printName: '', categoryId: '', price: 0, station: 'main' as Station, skipKitchen: false, isVeg: false, description: '', portions: [] as Portion[] };
   }
 
   catId(i: MenuItemData): string {
@@ -532,6 +550,7 @@ export class MenuAdminComponent implements OnInit, OnDestroy {
       categoryId: this.catId(item),
       price: item.price,
       station: item.station,
+      skipKitchen: !!item.skipKitchen,
       isVeg: item.isVeg,
       description: item.description ?? '',
       portions: (item.portions ?? []).map((p) => ({ ...p })),
@@ -561,6 +580,7 @@ export class MenuAdminComponent implements OnInit, OnDestroy {
       categoryId: this.f.categoryId,
       price,
       station: this.f.station,
+      skipKitchen: this.f.skipKitchen,
       isVeg: this.f.isVeg,
       description: this.f.description.trim(),
       portions,
