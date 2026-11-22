@@ -75,7 +75,7 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
       </header>
 
       <!-- ─── Alerts ─── -->
-      @if (offlineStations.length || undeliveredKots.length || failedJobs.length) {
+      @if (offlineStations.length || undeliveredTickets.length || failedJobs.length) {
         <div class="alerts">
           @if (offlineStations.length) {
             <div class="alert alert-danger">
@@ -86,25 +86,25 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
               </div>
             </div>
           }
-          @if (undeliveredKots.length) {
+          @if (undeliveredTickets.length) {
             <div class="alert alert-warning">
               <app-icon name="alert" />
               <div class="alert-body">
                 <div class="alert-line">
-                  <span class="alert-title">{{ undeliveredKots.length }} ticket{{ undeliveredKots.length === 1 ? '' : 's' }} not shown on a kitchen screen</span>
+                  <span class="alert-title">{{ undeliveredTickets.length }} ticket{{ undeliveredTickets.length === 1 ? '' : 's' }} not shown on a kitchen screen</span>
                   <span class="spacer"></span>
                   <button class="btn btn-sm btn-ghost" (click)="showUndelivered = !showUndelivered">{{ showUndelivered ? 'Hide' : 'Details' }}</button>
                   <button class="btn btn-sm" (click)="resendAll()"><app-icon name="send" /> Resend all</button>
                 </div>
                 @if (showUndelivered) {
                   <div class="alert-items">
-                    @for (k of undeliveredKots.slice(0, 8); track k._id) {
+                    @for (k of undeliveredTickets.slice(0, 8); track k._id) {
                       <span class="alert-item">
                         {{ stationNames[k.station] || k.station }} · #{{ k.number }} · Order {{ k.context?.orderNumber }}{{ k.context?.tableLabel ? ' · ' + tableLabel(k.context.tableLabel) : '' }}
-                        <button class="btn btn-sm" (click)="resendKotById(k._id)"><app-icon name="send" /> Resend</button>
+                        <button class="btn btn-sm" (click)="resendTicketById(k._id)"><app-icon name="send" /> Resend</button>
                       </span>
                     }
-                    @if (undeliveredKots.length > 8) { <span class="text-sm">+{{ undeliveredKots.length - 8 }} more</span> }
+                    @if (undeliveredTickets.length > 8) { <span class="text-sm">+{{ undeliveredTickets.length - 8 }} more</span> }
                   </div>
                 }
               </div>
@@ -489,14 +489,14 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
                   }
 
                   <div class="section-title">Kitchen tickets</div>
-                  @for (kot of reprintResult.kots; track kot._id) {
+                  @for (ticket of reprintResult.tickets; track ticket._id) {
                     <div class="lookup-row">
                       <span>
-                        {{ stationNames[kot.station] || kot.station }} · #{{ kot.number }}
-                        <span class="badge">{{ kot.status }}</span>
-                        @if (kot.isEdited) { <span class="badge badge-danger">Edit</span> }
+                        {{ stationNames[ticket.station] || ticket.station }} · #{{ ticket.number }}
+                        <span class="badge">{{ ticket.status }}</span>
+                        @if (ticket.isEdited) { <span class="badge badge-danger">Edit</span> }
                       </span>
-                      <button class="btn btn-sm" (click)="resendKotById(kot._id)"><app-icon name="send" /> Resend to screen</button>
+                      <button class="btn btn-sm" (click)="resendTicketById(ticket._id)"><app-icon name="send" /> Resend to screen</button>
                     </div>
                   } @empty {
                     <p class="text-muted text-sm">No tickets.</p>
@@ -644,7 +644,7 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
   // Devices & alerts
   failedJobs: any[] = [];
   stationStatus: Record<string, { online: boolean; screens: number }> = {};
-  undeliveredKots: any[] = [];
+  undeliveredTickets: any[] = [];
   showUndelivered = false;
   agentOnline = false;
 
@@ -679,7 +679,7 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
       }),
       this.socketService.reconnect$.subscribe(() => this.refreshAll()),
       this.socketService.fromEvent<any>('kds:status').subscribe((s) => (this.stationStatus = s || {})),
-      this.socketService.fromEvent<any[]>('kot:undelivered').subscribe((list) => (this.undeliveredKots = list || [])),
+      this.socketService.fromEvent<any[]>('ticket:undelivered').subscribe((list) => (this.undeliveredTickets = list || [])),
       this.socketService.fromEvent<any>('agent:status').subscribe((a) => (this.agentOnline = !!a?.online)),
       this.socketService.fromEvent<any>('print:failed').subscribe(() => this.fetchFailedJobs()),
       this.socketService.fromEvent<any>('table:updated').subscribe(() => this.fetchOpenOrders()),
@@ -687,8 +687,8 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
         this.ui.info(`Table ${r?.tableName ?? ''} is asking for the bill`, 'Bill requested');
         this.fetchOpenOrders();
       }),
-      this.socketService.fromEvent<any>('kot:updated').subscribe((k) => {
-        const list = this.reprintResult?.kots as any[] | undefined;
+      this.socketService.fromEvent<any>('ticket:updated').subscribe((k) => {
+        const list = this.reprintResult?.tickets as any[] | undefined;
         const idx = list?.findIndex((x) => x._id === k._id) ?? -1;
         if (list && idx !== -1) list[idx] = k;
       }),
@@ -823,7 +823,7 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
     this.http.get<{ stations: any; undelivered: any[] }>(`${environment.apiUrl}/kds/status`).subscribe({
       next: (res) => {
         this.stationStatus = res.stations || {};
-        this.undeliveredKots = res.undelivered || [];
+        this.undeliveredTickets = res.undelivered || [];
       },
       error: () => {},
     });
@@ -1027,10 +1027,10 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
     });
   }
 
-  resendKotById(kotId: string): void {
-    this.http.post<{ message: string }>(`${environment.apiUrl}/kots/${kotId}/resend`, {}).subscribe({
+  resendTicketById(ticketId: string): void {
+    this.http.post<{ message: string }>(`${environment.apiUrl}/tickets/${ticketId}/resend`, {}).subscribe({
       next: (res) => {
-        this.undeliveredKots = this.undeliveredKots.filter((k) => k._id !== kotId);
+        this.undeliveredTickets = this.undeliveredTickets.filter((k) => k._id !== ticketId);
         this.ui.success(res.message);
       },
       error: (err) => this.ui.apiError(err, 'Resend failed'),
@@ -1043,9 +1043,9 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
   }
 
   resendAll(): void {
-    const ids = this.undeliveredKots.map((k) => k._id);
-    ids.forEach((id) => this.http.post(`${environment.apiUrl}/kots/${id}/resend`, {}).subscribe({ error: () => {} }));
-    this.undeliveredKots = [];
+    const ids = this.undeliveredTickets.map((k) => k._id);
+    ids.forEach((id) => this.http.post(`${environment.apiUrl}/tickets/${id}/resend`, {}).subscribe({ error: () => {} }));
+    this.undeliveredTickets = [];
     this.ui.success(`${ids.length} ticket${ids.length === 1 ? '' : 's'} resent to the kitchen screens`);
   }
 
@@ -1099,12 +1099,12 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
           this.ui.warning(`No order #${q} found`);
           return;
         }
-        this.http.get<{ order: any; kots: any[]; bill: any }>(`${environment.apiUrl}/orders/${found._id}`).subscribe({
+        this.http.get<{ order: any; tickets: any[]; bill: any }>(`${environment.apiUrl}/orders/${found._id}`).subscribe({
           next: (o) => {
-            this.reprintResult = { ...found, kots: o.kots || [] };
+            this.reprintResult = { ...found, tickets: o.tickets || [] };
             this.reprintBillData = o.bill || null;
           },
-          error: () => (this.reprintResult = { ...found, kots: [] }),
+          error: () => (this.reprintResult = { ...found, tickets: [] }),
         });
       },
       error: (err) => this.ui.apiError(err),

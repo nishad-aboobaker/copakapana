@@ -1,35 +1,52 @@
+import mongoose from 'mongoose';
 import { User, IUser } from '../models/User';
 import { Role } from '../types';
 import { env } from '../config/env';
 import { Order } from '../models/Order';
-import { KOT } from '../models/KOT';
+import { Ticket } from '../models/Ticket';
 
 /**
- * One-off migrations for the switch from KOT printers to station screens:
- *  - legacy non-unique `clientRequestId_1` index → replaced by a unique partial index
- *  - legacy `printStatus` KOTs → treated as served so they don't flood station screens
+ * Moves data saved under the old "kot" names to the kitchen-ticket names, keeping
+ * existing tickets, today's ticket numbering and audit history. Does nothing once done,
+ * so it is safe to run on every start.
  */
-export const migrateForStationScreens = async (): Promise<void> => {
+export const migrateLegacyTickets = async (): Promise<void> => {
+  const db = mongoose.connection.db;
+  if (!db) return;
   try {
-    const indexes = await Order.collection.indexes();
-    const legacy = indexes.find((i) => i.name === 'clientRequestId_1' && !i.unique);
-    if (legacy) {
-      await Order.collection.dropIndex('clientRequestId_1');
-      console.log('🔧 [Bootstrap] Dropped legacy clientRequestId index');
+    const names = (await db.listCollections({}, { nameOnly: true }).toArray()).map((c) => c.name);
+    if (names.includes('kots')) {
+      const ticketsInUse = names.includes('tickets') && (await db.collection('tickets').estimatedDocumentCount()) > 0;
+      if (!ticketsInUse) {
+        // dropTarget: the model may already have created an empty `tickets` collection for its indexes
+        await db.collection('kots').rename('tickets', { dropTarget: true });
+        console.log('🔧 [Bootstrap] Moved kitchen tickets to the tickets collection');
+      }
     }
-    await Order.syncIndexes();
-  } catch (error) {
-    console.error('⚠️ [Bootstrap] Order index migration skipped:', (error as Error).message);
-  }
 
-  try {
-    const res = await KOT.updateMany(
-      { status: { $exists: false } },
-      { $set: { status: 'served', servedAt: new Date() }, $unset: { printStatus: 1, reprintCount: 1 } },
-    );
-    if (res.modifiedCount) console.log(`🔧 [Bootstrap] Archived ${res.modifiedCount} legacy printed KOTs`);
+    await db
+      .collection('tickets')
+      .updateMany({ againstKotNumber: { $exists: true } }, { $rename: { againstKotNumber: 'againstTicketNumber' } });
+
+    const counters = await db.collection('counters').find({ key: /^kot_/ }).toArray();
+    for (const c of counters) {
+      const key = String(c.key).replace(/^kot_/, 'ticket_');
+      await db.collection('counters').updateOne({ key }, { $max: { seq: c.seq } }, { upsert: true });
+      await db.collection('counters').deleteOne({ _id: c._id });
+    }
+
+    const renamedActions: Array<[string, string]> = [
+      ['kot_status_changed', 'ticket_status_changed'],
+      ['kot_recalled', 'ticket_recalled'],
+      ['kot_resent', 'ticket_resent'],
+    ];
+    for (const [from, to] of renamedActions) {
+      await db.collection('auditlogs').updateMany({ action: from }, { $set: { action: to } });
+    }
+
+    await Promise.all([Ticket.syncIndexes(), Order.syncIndexes()]);
   } catch (error) {
-    console.error('⚠️ [Bootstrap] KOT migration skipped:', (error as Error).message);
+    console.error('⚠️ [Bootstrap] Ticket migration skipped:', (error as Error).message);
   }
 };
 
@@ -63,11 +80,8 @@ export const ensureDefaultOwner = async (): Promise<IUser | null> => {
   }
 };
 
-/**
- * Master bootstrap runner called during server startup.
- * Only ensures the default owner account if no owner exists in the database.
- */
+/** Startup tasks: make sure an owner exists, then bring old data up to date. */
 export const bootstrapDefaultData = async (): Promise<void> => {
   await ensureDefaultOwner();
-  await migrateForStationScreens();
+  await migrateLegacyTickets();
 };

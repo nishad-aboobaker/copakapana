@@ -61,7 +61,7 @@ Times below are rough first-time estimates.
 5. **Get the code and build the server:**
    ```
    git clone https://github.com/<you>/copakapana-pos.git
-   cd copakapana-pos/server
+   cd copakapana/server
    npm ci
    npm run build
    ```
@@ -113,7 +113,7 @@ Times below are rough first-time estimates.
 
 **Updating the server later:**
 ```
-cd ~/copakapana-pos && git pull && cd server && npm ci && npm run build && pm2 restart copakapana-api
+cd ~/copakapana && git pull && cd server && MONGOMS_DISABLE_POSTINSTALL=1 npm ci && npm run build && pm2 restart copakapana-api
 ```
 
 ## Step 4 — Web app on Vercel (10 min)
@@ -122,7 +122,7 @@ cd ~/copakapana-pos && git pull && cd server && npm ci && npm run build && pm2 r
 2. **Root Directory:** `client`. Framework preset: *Other*. `client/vercel.json` already sets the build command and output folder.
 3. **Environment Variables:** `API_URL` = `https://api.YOUR-DOMAIN` (no trailing slash).
 4. **Deploy.** You get a URL like `https://copakapana.vercel.app`. You can also add your own domain, e.g. `pos.YOUR-DOMAIN`.
-5. If that URL differs from what you put in `CORS_ORIGINS` (Step 3.6), update it on the server: `nano ~/copakapana-pos/server/.env`, then `pm2 restart copakapana-api`.
+5. If that URL differs from what you put in `CORS_ORIGINS` (Step 3.6), update it on the server: `nano ~/copakapana/server/.env`, then `pm2 restart copakapana-api`.
 6. Open the Vercel URL → **Counter & office sign-in** → `owner` with the `SEED_OWNER_PASSWORD`. **Change that password straight away** under Staff & screens.
 
 Every `git push` to `main` redeploys the web app automatically.

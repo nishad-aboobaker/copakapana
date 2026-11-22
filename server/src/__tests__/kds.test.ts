@@ -1,16 +1,16 @@
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { KOT } from '../models/KOT';
+import { Ticket } from '../models/Ticket';
 import { Order } from '../models/Order';
 import { Table } from '../models/Table';
 import { User } from '../models/User';
-import { KotError, KotService } from '../services/kot.service';
+import { TicketError, TicketService } from '../services/ticket.service';
 import { cancelOrder } from '../controllers/orders.controller';
 import { getMenu, setStationItemAvailability } from '../controllers/menu.controller';
 import { MenuItem } from '../models/MenuItem';
 import { MenuCategory } from '../models/MenuCategory';
 import { AuditLog } from '../models/AuditLog';
-import { ItemStatus, KotStatus, OrderStatus, OrderType, Role, Station, TableFloor } from '../types';
+import { ItemStatus, TicketStatus, OrderStatus, OrderType, Role, Station, TableFloor } from '../types';
 
 // Socket emits are fire-and-forget; record them instead of needing a server
 const emitted: { room: string; event: string; data: any }[] = [];
@@ -39,7 +39,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   emitted.length = 0;
-  await Promise.all([KOT.deleteMany({}), Order.deleteMany({}), Table.deleteMany({}), User.deleteMany({})]);
+  await Promise.all([Ticket.deleteMany({}), Order.deleteMany({}), Table.deleteMany({}), User.deleteMany({})]);
 });
 
 const item = (name: string, station: Station, qty = 1) => ({
@@ -67,29 +67,29 @@ const makeOrder = async (items = [item('Fried Chicken', Station.FriedChicken), i
 
 const kitchen = (station: Station) => ({ id: new mongoose.Types.ObjectId().toString(), role: Role.Kitchen, station });
 
-describe('KOT generation for station screens', () => {
-  test('one KOT per station, with context snapshot, pushed to that station room only', async () => {
+describe('Ticket generation for station screens', () => {
+  test('one ticket per station, with context snapshot, pushed to that station room only', async () => {
     const { order, waiter } = await makeOrder();
-    const kots = await KotService.generateInitialKOTs(order, order.items, waiter._id as any);
+    const tickets = await TicketService.generateInitialTickets(order, order.items, waiter._id as any);
 
-    expect(kots.map((k) => k.station).sort()).toEqual([Station.FriedChicken, Station.Juice]);
-    const fc = kots.find((k) => k.station === Station.FriedChicken)!;
-    expect(fc.status).toBe(KotStatus.New);
+    expect(tickets.map((k) => k.station).sort()).toEqual([Station.FriedChicken, Station.Juice]);
+    const fc = tickets.find((k) => k.station === Station.FriedChicken)!;
+    expect(fc.status).toBe(TicketStatus.New);
     expect(fc.context).toMatchObject({ orderNumber: 231, tableLabel: '7', floor: 'First Floor', waiterName: 'anu' });
 
-    const pushes = emitted.filter((e) => e.event === 'kot:new');
+    const pushes = emitted.filter((e) => e.event === 'ticket:new');
     expect(pushes.map((p) => p.room).sort()).toEqual(['station:fried_chicken', 'station:juice']);
     // owning waiter is told too (for the ready signal)
-    expect(emitted.some((e) => e.room === `user:${waiter._id}` && e.event === 'kot:updated')).toBe(true);
+    expect(emitted.some((e) => e.room === `user:${waiter._id}` && e.event === 'ticket:updated')).toBe(true);
   });
 
-  test('edit creates EDITED KOT only on affected stations, referencing the original', async () => {
+  test('edit creates EDITED ticket only on affected stations, referencing the original', async () => {
     const { order, waiter } = await makeOrder();
-    const [first] = (await KotService.generateInitialKOTs(order, order.items, waiter._id as any)).filter(
+    const [first] = (await TicketService.generateInitialTickets(order, order.items, waiter._id as any)).filter(
       (k) => k.station === Station.FriedChicken,
     );
 
-    const edited = await KotService.generateEditedKOTs(
+    const edited = await TicketService.generateEditedTickets(
       order,
       [item('Chicken Wings', Station.FriedChicken)],
       [order.items[0]],
@@ -97,7 +97,7 @@ describe('KOT generation for station screens', () => {
     );
 
     expect(edited).toHaveLength(1);
-    expect(edited[0]).toMatchObject({ station: Station.FriedChicken, isEdited: true, againstKotNumber: first.number });
+    expect(edited[0]).toMatchObject({ station: Station.FriedChicken, isEdited: true, againstTicketNumber: first.number });
     expect(edited[0].addedItems.map((i) => i.name)).toEqual(['Chicken Wings']);
     expect(edited[0].cancelledItems.map((i) => i.name)).toEqual(['Fried Chicken']);
   });
@@ -106,68 +106,68 @@ describe('KOT generation for station screens', () => {
 describe('Station screen workflow', () => {
   test('new → preparing → ready → served records timestamps', async () => {
     const { order } = await makeOrder([item('Fried Chicken', Station.FriedChicken)]);
-    const [kot] = await KotService.generateInitialKOTs(order, order.items);
+    const [ticket] = await TicketService.generateInitialTickets(order, order.items);
     const screen = kitchen(Station.FriedChicken);
 
-    const prep = await KotService.changeStatus(kot.id, KotStatus.Preparing, screen);
+    const prep = await TicketService.changeStatus(ticket.id, TicketStatus.Preparing, screen);
     expect(prep.startedAt).toBeDefined();
     expect(prep.deliveredAt).toBeDefined();
-    const ready = await KotService.changeStatus(kot.id, KotStatus.Ready, screen);
+    const ready = await TicketService.changeStatus(ticket.id, TicketStatus.Ready, screen);
     expect(ready.readyAt).toBeDefined();
-    const served = await KotService.changeStatus(kot.id, KotStatus.Served, screen);
+    const served = await TicketService.changeStatus(ticket.id, TicketStatus.Served, screen);
     expect(served.servedAt).toBeDefined();
   });
 
-  test('a screen cannot touch another station’s KOT', async () => {
+  test('a screen cannot touch another station’s ticket', async () => {
     const { order } = await makeOrder([item('Fried Chicken', Station.FriedChicken)]);
-    const [kot] = await KotService.generateInitialKOTs(order, order.items);
-    await expect(KotService.changeStatus(kot.id, KotStatus.Preparing, kitchen(Station.Juice))).rejects.toMatchObject({
+    const [ticket] = await TicketService.generateInitialTickets(order, order.items);
+    await expect(TicketService.changeStatus(ticket.id, TicketStatus.Preparing, kitchen(Station.Juice))).rejects.toMatchObject({
       statusCode: 403,
     });
   });
 
   test('invalid jumps are rejected; staff may only mark served', async () => {
     const { order, waiter } = await makeOrder([item('Fried Chicken', Station.FriedChicken)]);
-    const [kot] = await KotService.generateInitialKOTs(order, order.items);
+    const [ticket] = await TicketService.generateInitialTickets(order, order.items);
 
     await expect(
-      KotService.changeStatus(kot.id, KotStatus.Served, kitchen(Station.FriedChicken)),
-    ).rejects.toBeInstanceOf(KotError);
+      TicketService.changeStatus(ticket.id, TicketStatus.Served, kitchen(Station.FriedChicken)),
+    ).rejects.toBeInstanceOf(TicketError);
     await expect(
-      KotService.changeStatus(kot.id, KotStatus.Preparing, { id: waiter.id, role: Role.Waiter }),
+      TicketService.changeStatus(ticket.id, TicketStatus.Preparing, { id: waiter.id, role: Role.Waiter }),
     ).rejects.toMatchObject({ statusCode: 403 });
 
-    const served = await KotService.changeStatus(kot.id, KotStatus.Served, { id: waiter.id, role: Role.Waiter });
-    expect(served.status).toBe(KotStatus.Served);
+    const served = await TicketService.changeStatus(ticket.id, TicketStatus.Served, { id: waiter.id, role: Role.Waiter });
+    expect(served.status).toBe(TicketStatus.Served);
   });
 
-  test('recall brings a cleared KOT back to ready within the window', async () => {
+  test('recall brings a cleared ticket back to ready within the window', async () => {
     const { order } = await makeOrder([item('Fried Chicken', Station.FriedChicken)]);
-    const [kot] = await KotService.generateInitialKOTs(order, order.items);
+    const [ticket] = await TicketService.generateInitialTickets(order, order.items);
     const screen = kitchen(Station.FriedChicken);
-    await KotService.changeStatus(kot.id, KotStatus.Ready, screen);
-    await KotService.changeStatus(kot.id, KotStatus.Served, screen);
+    await TicketService.changeStatus(ticket.id, TicketStatus.Ready, screen);
+    await TicketService.changeStatus(ticket.id, TicketStatus.Served, screen);
 
-    const recalled = await KotService.recall(kot.id, screen);
-    expect(recalled.status).toBe(KotStatus.Ready);
+    const recalled = await TicketService.recall(ticket.id, screen);
+    expect(recalled.status).toBe(TicketStatus.Ready);
     expect(recalled.servedAt).toBeUndefined();
   });
 
-  test('undelivered KOTs are reported until a screen confirms them; resend re-pushes', async () => {
+  test('undelivered tickets are reported until a screen confirms them; resend re-pushes', async () => {
     const { order } = await makeOrder([item('Fried Chicken', Station.FriedChicken)]);
-    const [kot] = await KotService.generateInitialKOTs(order, order.items);
-    // age the KOT past the ack timeout
-    await KOT.collection.updateOne({ _id: kot._id }, { $set: { updatedAt: new Date(Date.now() - 60_000) } });
+    const [ticket] = await TicketService.generateInitialTickets(order, order.items);
+    // age the ticket past the ack timeout
+    await Ticket.collection.updateOne({ _id: ticket._id }, { $set: { updatedAt: new Date(Date.now() - 60_000) } });
 
-    expect((await KotService.findUndelivered()).map((k) => k.id)).toEqual([kot.id]);
+    expect((await TicketService.findUndelivered()).map((k) => k.id)).toEqual([ticket.id]);
 
     emitted.length = 0;
-    await KotService.resend(kot.id, new mongoose.Types.ObjectId().toString());
-    expect(emitted.find((e) => e.event === 'kot:new')?.data.resent).toBe(true);
+    await TicketService.resend(ticket.id, new mongoose.Types.ObjectId().toString());
+    expect(emitted.find((e) => e.event === 'ticket:new')?.data.resent).toBe(true);
 
-    await KotService.markDelivered(kot.id, Station.FriedChicken);
-    await KOT.collection.updateOne({ _id: kot._id }, { $set: { updatedAt: new Date(Date.now() - 60_000) } });
-    expect(await KotService.findUndelivered()).toHaveLength(0);
+    await TicketService.markDelivered(ticket.id, Station.FriedChicken);
+    await Ticket.collection.updateOne({ _id: ticket._id }, { $set: { updatedAt: new Date(Date.now() - 60_000) } });
+    expect(await TicketService.findUndelivered()).toHaveLength(0);
   });
 });
 
@@ -236,7 +236,7 @@ describe('Cancelling an order', () => {
     const saved = (await Order.findById(order.id))!;
     expect(saved.status).toBe(OrderStatus.Cancelled);
     expect(saved.items.every((i) => i.status === ItemStatus.Cancelled)).toBe(true);
-    const edits = await KOT.find({ orderId: order._id, isEdited: true });
+    const edits = await Ticket.find({ orderId: order._id, isEdited: true });
     expect(edits.map((k) => k.station).sort()).toEqual([Station.FriedChicken, Station.Juice]);
   });
 

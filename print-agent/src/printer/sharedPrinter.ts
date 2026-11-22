@@ -29,7 +29,7 @@ export class SharedPrinter {
       throw new Error('Shared printers (\\\\PC\\Printer) can only be used when the print agent runs on Windows');
     }
     const share = this.normalise(target);
-    const file = path.join(os.tmpdir(), `kot-print-${Date.now()}-${Math.random().toString(36).slice(2)}.bin`);
+    const file = path.join(os.tmpdir(), `copa-print-${Date.now()}-${Math.random().toString(36).slice(2)}.bin`);
     await fs.writeFile(file, buffer);
     try {
       await new Promise<void>((resolve, reject) => {

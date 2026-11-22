@@ -194,7 +194,7 @@ const istDate = (d: Date): string =>
                     <div class="stat">
                       <span class="stat-label"><app-icon name="monitor" /> {{ stationNames[k.station] || k.station }}</span>
                       <span class="stat-value">{{ k.avgPrepMinutes }}<small> min avg</small></span>
-                      <span class="stat-meta">{{ k.kotCount }} tickets · longest {{ k.maxPrepMinutes }} min · {{ k.editedCount }} edits</span>
+                      <span class="stat-meta">{{ k.ticketCount }} tickets · longest {{ k.maxPrepMinutes }} min · {{ k.editedCount }} edits</span>
                     </div>
                   }
                 </div>

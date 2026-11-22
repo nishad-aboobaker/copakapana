@@ -8,16 +8,16 @@ import { environment } from '../../../environments/environment';
 import { IconComponent } from '../../shared/icon.component';
 import { UiService } from '../../shared/ui.service';
 
-type KotStatus = 'new' | 'preparing' | 'ready' | 'served';
+type TicketStatus = 'new' | 'preparing' | 'ready' | 'served';
 
-interface KotItem {
+interface TicketItem {
   name: string;
   qty: number;
   portion?: string;
   note?: string;
 }
 
-interface Kot {
+interface Ticket {
   _id: string;
   number: number;
   station: Station;
@@ -31,12 +31,12 @@ interface Kot {
     customerName?: string;
     customerPhone?: string;
   };
-  items: KotItem[];
+  items: TicketItem[];
   isEdited: boolean;
-  againstKotNumber?: number;
-  addedItems: KotItem[];
-  cancelledItems: KotItem[];
-  status: KotStatus;
+  againstTicketNumber?: number;
+  addedItems: TicketItem[];
+  cancelledItems: TicketItem[];
+  status: TicketStatus;
   createdAt: string;
   servedAt?: string;
   resendCount?: number;
@@ -51,8 +51,8 @@ interface KdsSettings {
 }
 
 /**
- * Kitchen station screen (KDS). Replaces the station KOT printer.
- * Shows this station's open KOTs in three lanes: New → Preparing → Ready.
+ * Kitchen station screen (KDS). One screen per kitchen station.
+ * Shows this station's open tickets in three lanes: New → Preparing → Ready.
  */
 @Component({
   selector: 'app-kds-screen',
@@ -83,7 +83,7 @@ interface KdsSettings {
       </header>
 
       @if (!connected()) {
-        <div class="offline">Connection lost — reconnecting. New KOTs will appear automatically when the connection returns.</div>
+        <div class="offline">Connection lost — reconnecting. New tickets will appear automatically when the connection returns.</div>
       }
 
       @if (showRecall()) {
@@ -108,7 +108,7 @@ interface KdsSettings {
               @for (k of lanes()[lane.key]; track k._id) {
                 <article class="card" [class]="'card ' + timerClass(k)" [class.edited]="k.isEdited" [class.fresh]="isFresh(k)">
                   @if (k.isEdited) {
-                    <div class="edited-banner">EDITED{{ k.againstKotNumber ? ' · vs #' + k.againstKotNumber : '' }}</div>
+                    <div class="edited-banner">EDITED{{ k.againstTicketNumber ? ' · vs #' + k.againstTicketNumber : '' }}</div>
                   }
                   @if (k.resent || k.resendCount) {
                     <div class="resent">RESENT {{ k.lastResentAt ? time(k.lastResentAt) : '' }}</div>
@@ -338,8 +338,8 @@ export class KdsScreenComponent implements OnInit, OnDestroy {
   ];
 
   public stationLabel = '';
-  public kots = signal<Kot[]>([]);
-  public recentlyServed = signal<Kot[]>([]);
+  public tickets = signal<Ticket[]>([]);
+  public recentlyServed = signal<Ticket[]>([]);
   public settings = signal<KdsSettings>({ kdsWarnMinutes: 10, kdsLateMinutes: 15, kdsSoundEnabled: true });
   public connected = signal(false);
   public now = signal(Date.now());
@@ -365,8 +365,8 @@ export class KdsScreenComponent implements OnInit, OnDestroy {
   private freshIds = signal<Set<string>>(new Set());
 
   public lanes = computed(() => {
-    const byAge = (a: Kot, b: Kot) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    const all = this.kots();
+    const byAge = (a: Ticket, b: Ticket) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    const all = this.tickets();
     return {
       new: all.filter((k) => k.status === 'new').sort(byAge),
       preparing: all.filter((k) => k.status === 'preparing').sort(byAge),
@@ -408,8 +408,8 @@ export class KdsScreenComponent implements OnInit, OnDestroy {
         this.load();
         this.loadStock();
       }),
-      this.socket.fromEvent<Kot>('kot:new').subscribe((k) => this.onNewKot(k)),
-      this.socket.fromEvent<Kot>('kot:updated').subscribe((k) => this.onUpdatedKot(k)),
+      this.socket.fromEvent<Ticket>('ticket:new').subscribe((k) => this.onNewTicket(k)),
+      this.socket.fromEvent<Ticket>('ticket:updated').subscribe((k) => this.onUpdatedTicket(k)),
       this.socket.fromEvent<KdsSettings>('kds:settings').subscribe((s) => this.settings.set({ ...this.settings(), ...s })),
       // Stock changes from the manager or another screen
       this.socket.fromEvent<any>('menu:updated').subscribe((it) => this.onMenuUpdated(it)),
@@ -428,35 +428,35 @@ export class KdsScreenComponent implements OnInit, OnDestroy {
   // ─── Data ──────────────────────────────────────────────────────────────────
   public load(): void {
     this.http
-      .get<{ kots: Kot[]; recentlyServed: Kot[]; settings: KdsSettings; serverTime: string }>(`${environment.apiUrl}/kds/kots`)
+      .get<{ tickets: Ticket[]; recentlyServed: Ticket[]; settings: KdsSettings; serverTime: string }>(`${environment.apiUrl}/kds/tickets`)
       .subscribe({
         next: (res) => {
           this.serverOffsetMs = new Date(res.serverTime).getTime() - Date.now();
-          const before = new Set(this.kots().map((k) => k._id));
-          this.kots.set(res.kots);
+          const before = new Set(this.tickets().map((k) => k._id));
+          this.tickets.set(res.tickets);
           this.recentlyServed.set(res.recentlyServed);
           this.settings.set(res.settings);
-          // Alert if a resync brought in KOTs we hadn't seen (e.g. sent while offline)
-          const missed = res.kots.filter((k) => !before.has(k._id) && k.status === 'new');
+          // Alert if a resync brought in tickets we hadn't seen (e.g. sent while offline)
+          const missed = res.tickets.filter((k) => !before.has(k._id) && k.status === 'new');
           if (before.size > 0 && missed.length) this.alert(missed.map((k) => k._id));
         },
-        error: (err) => this.error.set(err.error?.message || 'Could not load KOTs'),
+        error: (err) => this.error.set(err.error?.message || 'Could not load tickets'),
       });
   }
 
-  private onNewKot(k: Kot): void {
+  private onNewTicket(k: Ticket): void {
     if (k.station !== this.auth.currentUser?.station) return;
     // Confirm display to the server (drives the cashier's "undelivered" alert)
-    this.socket.emit('kot:received', { kotId: k._id }, () => {});
+    this.socket.emit('ticket:received', { ticketId: k._id }, () => {});
     this.upsert(k);
     this.recentlyServed.update((list) => list.filter((x) => x._id !== k._id));
     this.alert([k._id]);
   }
 
-  private onUpdatedKot(k: Kot): void {
+  private onUpdatedTicket(k: Ticket): void {
     if (k.station !== this.auth.currentUser?.station) return;
     if (k.status === 'served') {
-      this.kots.update((list) => list.filter((x) => x._id !== k._id));
+      this.tickets.update((list) => list.filter((x) => x._id !== k._id));
       this.recentlyServed.update((list) => [k, ...list.filter((x) => x._id !== k._id)].slice(0, 10));
     } else {
       this.upsert(k);
@@ -464,8 +464,8 @@ export class KdsScreenComponent implements OnInit, OnDestroy {
     }
   }
 
-  private upsert(k: Kot): void {
-    this.kots.update((list) => {
+  private upsert(k: Ticket): void {
+    this.tickets.update((list) => {
       const idx = list.findIndex((x) => x._id === k._id);
       if (idx === -1) return [...list, k];
       const copy = list.slice();
@@ -475,12 +475,12 @@ export class KdsScreenComponent implements OnInit, OnDestroy {
   }
 
   // ─── Actions ───────────────────────────────────────────────────────────────
-  public move(k: Kot, status: KotStatus): void {
+  public move(k: Ticket, status: TicketStatus): void {
     this.setBusy(k._id, true);
-    this.http.post<{ kot: Kot }>(`${environment.apiUrl}/kds/kots/${k._id}/status`, { status }).subscribe({
+    this.http.post<{ ticket: Ticket }>(`${environment.apiUrl}/kds/tickets/${k._id}/status`, { status }).subscribe({
       next: (res) => {
         this.setBusy(k._id, false);
-        this.onUpdatedKot(res.kot);
+        this.onUpdatedTicket(res.ticket);
       },
       error: (err) => {
         this.setBusy(k._id, false);
@@ -490,10 +490,10 @@ export class KdsScreenComponent implements OnInit, OnDestroy {
     });
   }
 
-  public recall(k: Kot): void {
-    this.http.post<{ kot: Kot }>(`${environment.apiUrl}/kds/kots/${k._id}/recall`, {}).subscribe({
+  public recall(k: Ticket): void {
+    this.http.post<{ ticket: Ticket }>(`${environment.apiUrl}/kds/tickets/${k._id}/recall`, {}).subscribe({
       next: (res) => {
-        this.onUpdatedKot(res.kot);
+        this.onUpdatedTicket(res.ticket);
         this.showRecall.set(false);
       },
       error: (err) => this.error.set(err.error?.message || 'Recall failed'),
@@ -578,7 +578,7 @@ export class KdsScreenComponent implements OnInit, OnDestroy {
   }
 
   // ─── Display helpers ───────────────────────────────────────────────────────
-  public header(k: Kot): string {
+  public header(k: Ticket): string {
     const c = k.context;
     const t = String(c.tableLabel ?? '');
     if (c.orderType === 'dine_in') return `${c.floor ? c.floor.replace(' Floor', '') + ' · ' : ''}${/^\d+$/.test(t) ? 'T' + t : t}`;
@@ -586,14 +586,14 @@ export class KdsScreenComponent implements OnInit, OnDestroy {
     return `DELIVERY · ${c.customerName ?? ''}`;
   }
 
-  public elapsed(k: Kot): string {
+  public elapsed(k: Ticket): string {
     const secs = Math.max(0, Math.floor((this.now() - new Date(k.createdAt).getTime()) / 1000));
     const m = Math.floor(secs / 60);
     const s = secs % 60;
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
 
-  public timerClass(k: Kot): string {
+  public timerClass(k: Ticket): string {
     if (k.status === 'ready') return '';
     const mins = (this.now() - new Date(k.createdAt).getTime()) / 60000;
     if (mins >= this.settings().kdsLateMinutes) return 'late';
@@ -607,7 +607,7 @@ export class KdsScreenComponent implements OnInit, OnDestroy {
     );
   }
 
-  public isFresh(k: Kot): boolean {
+  public isFresh(k: Ticket): boolean {
     return this.freshIds().has(k._id);
   }
 

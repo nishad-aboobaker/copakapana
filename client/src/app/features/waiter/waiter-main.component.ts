@@ -45,7 +45,7 @@ type Tab = 'tables' | 'orders' | 'ready';
 type OrderPane = 'menu' | 'cart' | 'sent';
 
 const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', juice: 'Juice', main: 'Main Kitchen' };
-const KOT_STATUS: Record<string, string> = { new: 'Sent', preparing: 'Preparing', ready: 'Ready', served: 'Served' };
+const TICKET_STATUS: Record<string, string> = { new: 'Sent', preparing: 'Preparing', ready: 'Ready', served: 'Served' };
 
 /**
  * Waiter app (phones). Bottom tabs: Tables · My orders · Ready.
@@ -176,7 +176,7 @@ const KOT_STATUS: Record<string, string> = { new: 'Sent', preparing: 'Preparing'
       @if (!inOrder && tab === 'ready') {
         <main class="content">
           <h2 class="screen-title">Ready to serve</h2>
-          @if (readyKots.length === 0) {
+          @if (readyTickets.length === 0) {
             <div class="empty-state">
               <div class="empty-icon"><app-icon name="bell" /></div>
               <h3>Nothing ready yet</h3>
@@ -184,12 +184,12 @@ const KOT_STATUS: Record<string, string> = { new: 'Sent', preparing: 'Preparing'
             </div>
           } @else {
             <div class="list">
-              @for (k of readyKots; track k._id) {
+              @for (k of readyTickets; track k._id) {
                 <div class="list-row ready-row">
                   <span class="lr-icon ready"><app-icon name="bell" /></span>
                   <span class="lr-main">
-                    <strong>{{ kotHeader(k) }}</strong>
-                    <small>{{ stationLabel(k.station) }} · {{ kotItemsSummary(k) }}</small>
+                    <strong>{{ ticketHeader(k) }}</strong>
+                    <small>{{ stationLabel(k.station) }} · {{ ticketItemsSummary(k) }}</small>
                   </span>
                   <button class="btn btn-success" (click)="markServed(k)"><app-icon name="check" /> Served</button>
                 </div>
@@ -320,19 +320,19 @@ const KOT_STATUS: Record<string, string> = { new: 'Sent', preparing: 'Preparing'
               </div>
             }
 
-            @if (orderKots.length) {
+            @if (orderTickets.length) {
               <div class="section-title">Kitchen</div>
-              <div class="card kots">
-                @for (k of orderKots; track k._id) {
-                  <div class="kot">
-                    <div class="kot-main">
+              <div class="card tickets">
+                @for (k of orderTickets; track k._id) {
+                  <div class="ticket">
+                    <div class="ticket-main">
                       <strong>
                         {{ stationLabel(k.station) }}
                         @if (k.isEdited) { <span class="badge badge-danger">Edit</span> }
                       </strong>
-                      <small>{{ kotItemsSummary(k) }}</small>
+                      <small>{{ ticketItemsSummary(k) }}</small>
                     </div>
-                    <span class="badge badge-dot" [class]="'badge badge-dot ' + kotBadge(k.status)">{{ kotStatusLabel(k.status) }}</span>
+                    <span class="badge badge-dot" [class]="'badge badge-dot ' + ticketBadge(k.status)">{{ ticketStatusLabel(k.status) }}</span>
                     @if (k.status === 'ready') {
                       <button class="btn btn-success btn-sm" (click)="markServed(k)">Served</button>
                     }
@@ -400,7 +400,7 @@ const KOT_STATUS: Record<string, string> = { new: 'Sent', preparing: 'Preparing'
                 <span class="num">₹{{ cartTotalPrice }}</span>
               </button>
             } @else {
-              <button class="btn btn-primary btn-xl btn-block" [disabled]="isSubmitting" (click)="sendKOT()">
+              <button class="btn btn-primary btn-xl btn-block" [disabled]="isSubmitting" (click)="sendOrder()">
                 @if (isSubmitting) {
                   <span class="spinner"></span> Sending…
                 } @else {
@@ -424,7 +424,7 @@ const KOT_STATUS: Record<string, string> = { new: 'Sent', preparing: 'Preparing'
           </button>
           <button [class.active]="tab === 'ready'" (click)="tab = 'ready'">
             <app-icon name="bell" /><span>Ready</span>
-            @if (readyKots.length) { <i class="nav-count pulse">{{ readyKots.length }}</i> }
+            @if (readyTickets.length) { <i class="nav-count pulse">{{ readyTickets.length }}</i> }
           </button>
         </nav>
       }
@@ -665,12 +665,12 @@ const KOT_STATUS: Record<string, string> = { new: 'Sent', preparing: 'Preparing'
       .cust { display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; }
       .cust div { display: flex; flex-direction: column; min-width: 0; }
       .cust small { color: var(--text-muted); font-size: var(--fs-xs); }
-      .kots { display: flex; flex-direction: column; }
-      .kot { display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--gray-100); }
-      .kot:last-child { border-bottom: 0; }
-      .kot-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-      .kot-main strong { display: flex; align-items: center; gap: 0.4rem; font-size: var(--fs-sm); color: var(--text-strong); }
-      .kot-main small { color: var(--text-muted); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .tickets { display: flex; flex-direction: column; }
+      .ticket { display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--gray-100); }
+      .ticket:last-child { border-bottom: 0; }
+      .ticket-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+      .ticket-main strong { display: flex; align-items: center; gap: 0.4rem; font-size: var(--fs-sm); color: var(--text-strong); }
+      .ticket-main small { color: var(--text-muted); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .section-title { margin-bottom: -0.5rem; }
       .bill-btn { border-color: var(--border-strong); }
 
@@ -744,7 +744,7 @@ export class WaiterMainComponent implements OnInit, OnDestroy {
   // My open orders (all types)
   myOrders: any[] = [];
 
-  // Open order — setting it (re)loads its KOT statuses from the station screens
+  // Open order — setting it (re)loads its ticket statuses from the station screens
   private _currentOpenOrder: any = null;
   get currentOpenOrder(): any {
     return this._currentOpenOrder;
@@ -752,13 +752,13 @@ export class WaiterMainComponent implements OnInit, OnDestroy {
   set currentOpenOrder(order: any) {
     const changed = order?._id !== this._currentOpenOrder?._id;
     this._currentOpenOrder = order;
-    if (!order) this.orderKots = [];
-    else if (changed) this.loadOrderKots();
+    if (!order) this.orderTickets = [];
+    else if (changed) this.loadOrderTickets();
   }
 
   // Kitchen (station screen) status
-  orderKots: any[] = [];
-  readyKots: any[] = [];
+  orderTickets: any[] = [];
+  readyTickets: any[] = [];
 
   // Dish sheet
   selectedDishSheet: MenuItem | null = null;
@@ -785,17 +785,17 @@ export class WaiterMainComponent implements OnInit, OnDestroy {
       this.socketService.fromEvent<any>('order:updated').subscribe((updatedOrder) => {
         if (this.currentOpenOrder && this.currentOpenOrder._id === updatedOrder._id) {
           this.currentOpenOrder = updatedOrder;
-          this.loadOrderKots();
+          this.loadOrderTickets();
         }
         this.fetchMyOrders();
       }),
 
       this.socketService.reconnect$.subscribe(() => {
-        this.fetchReadyKots();
+        this.fetchReadyTickets();
         this.fetchTables();
         this.fetchMyOrders();
       }),
-      this.socketService.fromEvent<any>('kot:updated').subscribe((kot) => this.onKotUpdated(kot)),
+      this.socketService.fromEvent<any>('ticket:updated').subscribe((ticket) => this.onTicketUpdated(ticket)),
 
       // Live menu availability changes
       this.socketService.fromEvent<any>('menu:updated').subscribe((updatedItem) => {
@@ -886,7 +886,7 @@ export class WaiterMainComponent implements OnInit, OnDestroy {
   }
 
   get readyForThisOrder(): number {
-    return this.orderKots.filter((k) => k.status === 'ready').length;
+    return this.orderTickets.filter((k) => k.status === 'ready').length;
   }
 
   get displayedItems(): MenuItem[] {
@@ -1163,7 +1163,7 @@ export class WaiterMainComponent implements OnInit, OnDestroy {
   }
 
   // ─── Sending ─────────────────────────────────────────────────────────────
-  sendKOT(): void {
+  sendOrder(): void {
     if (this.cart.length === 0 || this.isSubmitting) return;
     this.isSubmitting = true;
     const clientRequestId = 'req_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
@@ -1179,7 +1179,7 @@ export class WaiterMainComponent implements OnInit, OnDestroy {
       this.http.post<any>(`${environment.apiUrl}/orders/${orderId}/items`, { items, clientRequestId }).subscribe({
         next: (res) => {
           this.currentOpenOrder = res.order;
-          this.loadOrderKots();
+          this.loadOrderTickets();
           this.afterSend(false);
         },
         error: (err) => this.sendFailed(err),
@@ -1248,7 +1248,7 @@ export class WaiterMainComponent implements OnInit, OnDestroy {
     this.http.patch<any>(`${environment.apiUrl}/orders/${this.currentOpenOrder._id}/items/${item._id}/cancel`, {}).subscribe({
       next: async (res) => {
         this.currentOpenOrder = res.order;
-        this.loadOrderKots();
+        this.loadOrderTickets();
         this.ui.success(`${item.name} cancelled`);
         // Last item gone: offer to close the order instead of leaving an empty table occupied
         if (!this.hasActiveItems) {
@@ -1311,66 +1311,66 @@ export class WaiterMainComponent implements OnInit, OnDestroy {
     return STATION_NAMES[station] || station;
   }
 
-  kotStatusLabel(status: string): string {
-    return KOT_STATUS[status] || status;
+  ticketStatusLabel(status: string): string {
+    return TICKET_STATUS[status] || status;
   }
 
-  kotBadge(status: string): string {
+  ticketBadge(status: string): string {
     return status === 'ready' ? 'badge-success' : status === 'preparing' ? 'badge-warning' : status === 'new' ? 'badge-info' : '';
   }
 
-  kotItemsSummary(k: any): string {
+  ticketItemsSummary(k: any): string {
     const items = k.isEdited ? k.addedItems || [] : k.items || [];
     const add = items.map((i: any) => `${i.qty}× ${i.name}`).join(', ');
     const cancel = (k.isEdited ? k.cancelledItems || [] : []).map((i: any) => `−${i.qty}× ${i.name}`).join(', ');
     return [add, cancel].filter(Boolean).join(' · ');
   }
 
-  kotHeader(k: any): string {
+  ticketHeader(k: any): string {
     const c = k.context || {};
     if (c.orderType === 'dine_in') return `Table ${c.tableLabel ?? ''}`.replace(/^Table (\d+)$/, 'Table T$1');
     if (c.orderType === 'takeaway') return `Takeaway · ${c.customerName ?? ''}`;
     return `Delivery · ${c.customerName ?? ''}`;
   }
 
-  loadOrderKots(): void {
+  loadOrderTickets(): void {
     const id = this.currentOpenOrder?._id;
     if (!id) return;
-    this.http.get<{ kots: any[] }>(`${environment.apiUrl}/orders/${id}/kots`).subscribe({
+    this.http.get<{ tickets: any[] }>(`${environment.apiUrl}/orders/${id}/tickets`).subscribe({
       next: (res) => {
-        if (this.currentOpenOrder?._id === id) this.orderKots = res.kots || [];
+        if (this.currentOpenOrder?._id === id) this.orderTickets = res.tickets || [];
       },
       error: () => {},
     });
   }
 
-  private fetchReadyKots(): void {
-    this.http.get<{ kots: any[] }>(`${environment.apiUrl}/kots?status=ready`).subscribe({
-      next: (res) => (this.readyKots = res.kots || []),
+  private fetchReadyTickets(): void {
+    this.http.get<{ tickets: any[] }>(`${environment.apiUrl}/tickets?status=ready`).subscribe({
+      next: (res) => (this.readyTickets = res.tickets || []),
       error: () => {},
     });
   }
 
-  private onKotUpdated(kot: any): void {
-    const idx = this.orderKots.findIndex((k) => k._id === kot._id);
-    if (idx !== -1) this.orderKots[idx] = kot;
-    else if (kot.orderId === this.currentOpenOrder?._id) this.orderKots.push(kot);
-    this.orderKots = [...this.orderKots];
+  private onTicketUpdated(ticket: any): void {
+    const idx = this.orderTickets.findIndex((k) => k._id === ticket._id);
+    if (idx !== -1) this.orderTickets[idx] = ticket;
+    else if (ticket.orderId === this.currentOpenOrder?._id) this.orderTickets.push(ticket);
+    this.orderTickets = [...this.orderTickets];
 
-    const wasReady = this.readyKots.some((k) => k._id === kot._id);
-    this.readyKots = this.readyKots.filter((k) => k._id !== kot._id);
-    if (kot.status === 'ready') {
-      this.readyKots = [...this.readyKots, kot];
+    const wasReady = this.readyTickets.some((k) => k._id === ticket._id);
+    this.readyTickets = this.readyTickets.filter((k) => k._id !== ticket._id);
+    if (ticket.status === 'ready') {
+      this.readyTickets = [...this.readyTickets, ticket];
       if (!wasReady) {
         navigator.vibrate?.([200, 100, 200]);
-        this.ui.success(`${this.stationLabel(kot.station)}: ${this.kotItemsSummary(kot)}`, `${this.kotHeader(kot)} is ready`);
+        this.ui.success(`${this.stationLabel(ticket.station)}: ${this.ticketItemsSummary(ticket)}`, `${this.ticketHeader(ticket)} is ready`);
       }
     }
   }
 
   markServed(k: any): void {
-    this.http.post<{ kot: any }>(`${environment.apiUrl}/kots/${k._id}/served`, {}).subscribe({
-      next: (res) => this.onKotUpdated(res.kot),
+    this.http.post<{ ticket: any }>(`${environment.apiUrl}/tickets/${k._id}/served`, {}).subscribe({
+      next: (res) => this.onTicketUpdated(res.ticket),
       error: (err) => this.ui.apiError(err, 'Could not mark as served'),
     });
   }

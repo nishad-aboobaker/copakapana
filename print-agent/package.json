@@ -1,7 +1,7 @@
 {
-  "name": "kot-print-agent",
+  "name": "copakapana-print-agent",
   "version": "1.0.0",
-  "description": "KOT & Billing System \u2014 Bill Print Agent (runs on restaurant PC; KOTs go to station screens)",
+  "description": "Copakapana POS — bill print agent (runs on the restaurant PC)",
   "main": "dist/agent.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/agent.ts",

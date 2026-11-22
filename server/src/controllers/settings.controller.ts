@@ -72,17 +72,8 @@ const pickKdsSettings = (s: any) => ({
   kdsSoundEnabled: s.kdsSoundEnabled,
 });
 
-/** POST /settings/printers/bill/test — the bill printer is the only printer now. */
-export const testPrinter = async (req: Request, res: Response): Promise<void> => {
-  const { station } = req.params;
-  if (station !== 'bill') {
-    res.status(400).json({
-      code: 'INVALID_PRINTER',
-      message: 'Only the bill printer can be tested; kitchen stations use screens',
-    });
-    return;
-  }
-
+/** POST /settings/printers/bill/test — sends a test page to the bill printer. */
+export const testPrinter = async (_req: Request, res: Response): Promise<void> => {
   const settings = await Settings.findOne();
   const targetIp = settings?.billPrinterIp || '192.168.1.100';
   const printJob = await PrintService.enqueue('test', targetIp, {

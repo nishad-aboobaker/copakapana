@@ -8,7 +8,7 @@ import { Role } from '../types';
 jest.mock('../models/User');
 // The station-screen migration touches these; they're irrelevant to the owner seeder
 jest.mock('../models/Order');
-jest.mock('../models/KOT');
+jest.mock('../models/Ticket');
 
 describe('Default Owner Seeder (Bootstrap Service)', () => {
   beforeEach(() => {

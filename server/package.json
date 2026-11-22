@@ -1,7 +1,7 @@
 {
-  "name": "kot-server",
+  "name": "copakapana-server",
   "version": "1.0.0",
-  "description": "KOT & Billing System — Backend Server",
+  "description": "Copakapana POS — server (orders, kitchen screens, billing)",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",

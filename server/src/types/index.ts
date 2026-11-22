@@ -1,4 +1,4 @@
-// All shared enums and interfaces for the KOT & Billing system
+// All shared enums and interfaces for the ticket & Billing system
 
 // ─── Roles ───────────────────────────────────────────────────────────────────
 export enum Role {
@@ -58,8 +58,8 @@ export enum ItemStatus {
   Cancelled = 'cancelled',
 }
 
-// ─── KOT (station screens) ───────────────────────────────────────────────────
-export enum KotStatus {
+// ─── ticket (station screens) ───────────────────────────────────────────────────
+export enum TicketStatus {
   New = 'new',
   Preparing = 'preparing',
   Ready = 'ready',

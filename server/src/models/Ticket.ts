@@ -1,7 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
-import { KotStatus, OrderType, Station } from '../types';
+import { TicketStatus, OrderType, Station } from '../types';
 
-export interface IKOTItem {
+export interface ITicketItem {
   name: string;
   qty: number;
   portion?: string;
@@ -9,10 +9,10 @@ export interface IKOTItem {
 }
 
 /**
- * Snapshot of the order context at the time the KOT was created, so a station
+ * Snapshot of the order context at the time the ticket was created, so a station
  * screen can render the card without joining Order / Table / User.
  */
-export interface IKOTContext {
+export interface ITicketContext {
   orderNumber: number;
   orderType: OrderType;
   tableLabel?: string;
@@ -23,18 +23,18 @@ export interface IKOTContext {
   customerPhone?: string;
 }
 
-export interface IKOT extends Document {
+export interface ITicket extends Document {
   number: number;
   orderId: mongoose.Types.ObjectId;
   station: Station;
-  context: IKOTContext;
-  items: IKOTItem[];
+  context: ITicketContext;
+  items: ITicketItem[];
   isEdited: boolean;
-  againstKotNumber?: number;
-  addedItems: IKOTItem[];
-  cancelledItems: IKOTItem[];
-  // Kitchen workflow — the only mutable part of a KOT
-  status: KotStatus;
+  againstTicketNumber?: number;
+  addedItems: ITicketItem[];
+  cancelledItems: ITicketItem[];
+  // Kitchen workflow — the only mutable part of a ticket
+  status: TicketStatus;
   deliveredAt?: Date; // first time a station screen confirmed display
   startedAt?: Date;
   readyAt?: Date;
@@ -47,7 +47,7 @@ export interface IKOT extends Document {
   updatedAt: Date;
 }
 
-const kotItemSchema = new Schema<IKOTItem>(
+const ticketItemSchema = new Schema<ITicketItem>(
   {
     name: { type: String, required: true },
     qty: { type: Number, required: true },
@@ -57,7 +57,7 @@ const kotItemSchema = new Schema<IKOTItem>(
   { _id: false },
 );
 
-const kotContextSchema = new Schema<IKOTContext>(
+const ticketContextSchema = new Schema<ITicketContext>(
   {
     orderNumber: { type: Number, required: true },
     orderType: { type: String, enum: Object.values(OrderType), required: true },
@@ -71,18 +71,18 @@ const kotContextSchema = new Schema<IKOTContext>(
   { _id: false },
 );
 
-const kotSchema = new Schema<IKOT>(
+const ticketSchema = new Schema<ITicket>(
   {
     number: { type: Number, required: true },
     orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true, index: true },
     station: { type: String, enum: Object.values(Station), required: true, index: true },
-    context: { type: kotContextSchema, required: true },
-    items: [kotItemSchema],
+    context: { type: ticketContextSchema, required: true },
+    items: [ticketItemSchema],
     isEdited: { type: Boolean, default: false },
-    againstKotNumber: Number,
-    addedItems: [kotItemSchema],
-    cancelledItems: [kotItemSchema],
-    status: { type: String, enum: Object.values(KotStatus), default: KotStatus.New, index: true },
+    againstTicketNumber: Number,
+    addedItems: [ticketItemSchema],
+    cancelledItems: [ticketItemSchema],
+    status: { type: String, enum: Object.values(TicketStatus), default: TicketStatus.New, index: true },
     deliveredAt: Date,
     startedAt: Date,
     readyAt: Date,
@@ -95,7 +95,7 @@ const kotSchema = new Schema<IKOT>(
   { timestamps: true },
 );
 
-kotSchema.index({ orderId: 1, createdAt: 1 });
-kotSchema.index({ station: 1, status: 1, createdAt: 1 });
+ticketSchema.index({ orderId: 1, createdAt: 1 });
+ticketSchema.index({ station: 1, status: 1, createdAt: 1 });
 
-export const KOT = mongoose.model<IKOT>('KOT', kotSchema);
+export const Ticket = mongoose.model<ITicket>('Ticket', ticketSchema);

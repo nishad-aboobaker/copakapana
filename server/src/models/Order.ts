@@ -5,7 +5,7 @@ export interface IOrderItemDocument extends OrderItemShape {
   _id: mongoose.Types.ObjectId;
 }
 
-/** Minimal item shape needed to build a KOT line. */
+/** Minimal item shape needed to build a ticket line. */
 export type OrderItemLike = Pick<OrderItemShape, 'name' | 'qty' | 'portion' | 'note' | 'station'>;
 
 export interface IOrder extends Document {

@@ -15,7 +15,7 @@ const router = Router();
 
 router.get('/', requireAnyAuth, asyncHandler(getSettings));
 router.patch('/', requireAuth, requireRole(Role.Owner), asyncHandler(updateSettings));
-router.post('/printers/:station/test', requireAuth, requireRole(Role.Owner), asyncHandler(testPrinter));
+router.post('/printers/bill/test', requireAuth, requireRole(Role.Owner), asyncHandler(testPrinter));
 router.get('/failed-jobs', requireAuth, requireRole(Role.Cashier), asyncHandler(getFailedJobs));
 router.post('/jobs/:jobId/retry', requireAuth, requireRole(Role.Cashier), asyncHandler(retryPrintJob));
 

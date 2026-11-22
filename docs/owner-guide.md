@@ -31,8 +31,8 @@
 ## 5. System Settings, Station Screens & Bill Printer (`/admin/settings`)
 - **Restaurant Details**: Set the restaurant name, address, and phone number printed on customer receipts.
 - **Taxes & Charges**: Enable/disable GST and configure the percentage rate; enable/disable service charge.
-- **Kitchen Station Screens**: Set when a KOT card's timer turns amber (warn) and red (late), and whether a chime plays on new KOTs.
-- **Bill Printer**: Set the counter printer's IP address (TCP port 9100). Use **Test Print** to check it. KOTs are not printed; they appear on the station screens.
+- **Kitchen Station Screens**: Set when a ticket card's timer turns amber (warn) and red (late), and whether a chime plays on new tickets.
+- **Bill Printer**: Set the printer address the print agent uses (for example `printer:pos80`). Use **Test Print** to check it.
 - **Privacy**: Toggle whether customer phone numbers and delivery addresses are included in CSV exports.
 
 ---
@@ -43,7 +43,7 @@
 - **Payment Split**: Total cash collections vs UPI / digital settlements.
 - **Order Channels**: Performance comparison across Dine-In, Takeaway, and Delivery.
 - **Staff Performance**: Sales volume attributed per waiter.
-- **Kitchen Times**: Per station, the number of KOTs and the average and longest time from sent to ready.
+- **Kitchen Times**: Per station, the number of tickets and the average and longest time from sent to ready.
 - **End of Day (EOD) Summary**: Complete printable settlement sheet. Click **🖨️ Print EOD Summary** to print an official daily audit report.
 - **CSV Export**: Click **📥 Export to CSV** on any tab to download spreadsheet files.
 

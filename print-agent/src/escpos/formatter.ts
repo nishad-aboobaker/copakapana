@@ -1,6 +1,5 @@
 /**
  * ESC/POS formatting for the cashier counter printer.
- * KOTs are no longer printed — they are shown on kitchen station screens.
  */
 export class EscposFormatter {
   private static readonly LINE_WIDTH = 42;

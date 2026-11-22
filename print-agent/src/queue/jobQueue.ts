@@ -1,7 +1,7 @@
 import { EscposFormatter } from '../escpos/formatter';
 import { describeTarget, printTo } from '../printer';
 
-/** Bill and test-print jobs only — KOTs are shown on kitchen station screens. */
+/** Bill and test-print jobs. */
 export interface PrintJobTask {
   jobId: string;
   type: 'bill' | 'test';

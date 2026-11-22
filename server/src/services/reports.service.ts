@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { Bill } from '../models/Bill';
-import { KOT } from '../models/KOT';
+import { Ticket } from '../models/Ticket';
 import { BillStatus } from '../types';
 
 /** Today's date (YYYY-MM-DD) in the restaurant's timezone. */
@@ -265,18 +265,18 @@ export class ReportsService {
   }
 
   /**
-   * Kitchen performance per station: KOT count, average and longest sent→ready (minutes).
+   * Kitchen performance per station: ticket count, average and longest sent→ready (minutes).
    */
   public static async getKitchenPerformance(from?: string, to?: string) {
     const { startDate, endDate } = parseDateRange(from, to);
 
-    return KOT.aggregate([
+    return Ticket.aggregate([
       { $match: { createdAt: { $gte: startDate, $lte: endDate }, readyAt: { $exists: true } } },
       { $project: { station: 1, isEdited: 1, prepMs: { $subtract: ['$readyAt', '$createdAt'] } } },
       {
         $group: {
           _id: '$station',
-          kotCount: { $sum: 1 },
+          ticketCount: { $sum: 1 },
           editedCount: { $sum: { $cond: ['$isEdited', 1, 0] } },
           avgPrepMs: { $avg: '$prepMs' },
           maxPrepMs: { $max: '$prepMs' },
@@ -286,7 +286,7 @@ export class ReportsService {
         $project: {
           _id: 0,
           station: '$_id',
-          kotCount: 1,
+          ticketCount: 1,
           editedCount: 1,
           avgPrepMinutes: { $round: [{ $divide: ['$avgPrepMs', 60000] }, 1] },
           maxPrepMinutes: { $round: [{ $divide: ['$maxPrepMs', 60000] }, 1] },

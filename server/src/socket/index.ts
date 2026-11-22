@@ -22,20 +22,20 @@ interface JwtPayload {
 type ExtSocket = Socket & { isAgent?: boolean; user?: JwtPayload };
 
 // Hooks registered by services (avoids circular imports with models)
-type KotReceivedHandler = (kotId: string, socketUser: JwtPayload) => Promise<void>;
+type TicketReceivedHandler = (ticketId: string, socketUser: JwtPayload) => Promise<void>;
 type PrintResultHandler = (result: { jobId: string; status: 'printed' | 'failed'; error?: string }) => Promise<void>;
 type AgentConnectedHandler = () => Promise<void>;
 
-let onKotReceived: KotReceivedHandler | null = null;
+let onTicketReceived: TicketReceivedHandler | null = null;
 let onPrintResult: PrintResultHandler | null = null;
 let onAgentConnected: AgentConnectedHandler | null = null;
 
 export const registerSocketHandlers = (h: {
-  kotReceived?: KotReceivedHandler;
+  ticketReceived?: TicketReceivedHandler;
   printResult?: PrintResultHandler;
   agentConnected?: AgentConnectedHandler;
 }): void => {
-  if (h.kotReceived) onKotReceived = h.kotReceived;
+  if (h.ticketReceived) onTicketReceived = h.ticketReceived;
   if (h.printResult) onPrintResult = h.printResult;
   if (h.agentConnected) onAgentConnected = h.agentConnected;
 };
@@ -131,10 +131,10 @@ export const initSocket = (io: SocketIOServer): void => {
         stationSockets.get(user.station)?.add(socket.id);
         emitStationStatus();
 
-        // Screen confirms a KOT is displayed. Ack callback lets the screen know it was recorded.
-        socket.on('kot:received', (data: { kotId?: string }, ack?: (ok: boolean) => void) => {
-          if (!data?.kotId || !onKotReceived) return ack?.(false);
-          onKotReceived(data.kotId, user)
+        // Screen confirms a ticket is displayed. Ack callback lets the screen know it was recorded.
+        socket.on('ticket:received', (data: { ticketId?: string }, ack?: (ok: boolean) => void) => {
+          if (!data?.ticketId || !onTicketReceived) return ack?.(false);
+          onTicketReceived(data.ticketId, user)
             .then(() => ack?.(true))
             .catch(() => ack?.(false));
         });

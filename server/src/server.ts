@@ -6,7 +6,7 @@ import { env } from './config/env';
 import { isOriginAllowed } from './config/cors';
 import { initSocket } from './socket';
 import { bootstrapDefaultData } from './services/bootstrap.service';
-import { initKotWatchers } from './services/kot.service';
+import { initTicketWatchers } from './services/ticket.service';
 import { initPrintWatchers } from './services/print.service';
 
 const startServer = async (): Promise<void> => {
@@ -39,7 +39,7 @@ const startServer = async (): Promise<void> => {
 
   // Initialize socket handlers
   initSocket(io);
-  const watchers = [initKotWatchers(), initPrintWatchers()];
+  const watchers = [initTicketWatchers(), initPrintWatchers()];
 
   // Start listening
   const port = Number(env.PORT);

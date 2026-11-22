@@ -1,27 +1,26 @@
-# Restaurant KOT & Billing System — PRD
+# Restaurant POS & Kitchen Display — PRD
 
-Nov 19, 2026 · @nishad · **Revised Nov 21, 2026: kitchen station screens (KDS) replace KOT printers**
+Nov 19, 2026 · @nishad · Revised Nov 22, 2026
 
-> **What changed in this revision.** The three station KOT printers are replaced by one screen per kitchen station (a kitchen display system, KDS). KOTs now appear on the station's screen in real time instead of printing. The cashier bill printer stays, so the print agent remains but handles bills only. Station screens add a cook workflow (New → Preparing → Ready), a live "ready" signal to waiters and the cashier, and kitchen timing data.
 
 ## Overview and goals
 
-This system lets one family-dining restaurant take orders on waiter phones, show kitchen order tickets (KOTs) on a screen at each of the three kitchen stations, and bill dine-in, takeaway and in-house delivery orders from a cashier PC. It is a single-restaurant prototype with no table booking, built on an Angular PWA, Node/Express and MongoDB.
+This system lets one family-dining restaurant take orders on waiter phones, show kitchen tickets on a screen at each of the three kitchen stations, and bill dine-in, takeaway and in-house delivery orders from a cashier PC. It is a single-restaurant prototype with no table booking, built on an Angular PWA, Node/Express and MongoDB.
 
 **Goals**
 
-- A waiter sends an order from a phone and the KOT appears on the right station screen within 2 seconds on normal connectivity.
-- No order is lost: a dropped connection queues the order on the phone and sends it on reconnect; a station screen that drops off catches up with every open KOT when it reconnects.
-- The kitchen marks each KOT Preparing and Ready on the screen; the waiter's phone and the cashier panel show it as ready to serve.
+- A waiter sends an order from a phone and the ticket appears on the right station screen within 2 seconds on normal connectivity.
+- No order is lost: a dropped connection queues the order on the phone and sends it on reconnect; a station screen that drops off catches up with every open ticket when it reconnects.
+- The kitchen marks each ticket Preparing and Ready on the screen; the waiter's phone and the cashier panel show it as ready to serve.
 - The cashier closes a bill in under 30 seconds.
-- Edits after a KOT is sent reach the kitchen as a clearly flagged "EDITED" KOT on the station screen.
+- Edits after a ticket is sent reach the kitchen as a clearly flagged "EDITED" ticket on the station screen.
 - The owner gets daily sales, item-wise sales, cash vs UPI totals, order-type split, waiter-wise sales and kitchen preparation times.
 - The owner manages staff, station screens, menu, tables and the bill printer without a developer.
 
 **Success criteria for the prototype**
 
-- A full day of simulated service (dine-in, takeaway, delivery) runs end to end with correct KOTs on screens, bills and reports.
-- Every KOT, status change, edit, cancellation and discount is traceable to a user and a time.
+- A full day of simulated service (dine-in, takeaway, delivery) runs end to end with correct tickets on screens, bills and reports.
+- Every ticket, status change, edit, cancellation and discount is traceable to a user and a time.
 
 ## Scope and decisions made
 
@@ -33,15 +32,15 @@ The restaurant has two floors: 3 tables on the ground floor and 13 on the first 
 | Order types | Dine-in, takeaway, in-house delivery. No Zomato/Swiggy integration |
 | Table booking | None. Walk-in only, so tables only need free/occupied/billing status |
 | Kitchen stations | Three: fried chicken, juice counter, main (all other food) |
-| **KOT output** | **One screen per station (touch tablet or touch monitor running the web app). No KOT printers** |
-| KOT workflow | New → Preparing → Ready (on the station screen) → Served (waiter or station) |
+| **Kitchen output** | **One screen per station (touch tablet or touch monitor running the web app)** |
+| Ticket workflow | New → Preparing → Ready (on the station screen) → Served (waiter or station) |
 | Bill output | One Ethernet thermal printer at the cashier counter, driven by the print agent |
 | Waiter device | Waiters' own phones, on their mobile data or the restaurant WiFi |
 | Hosting | Cloud server reachable from the internet; station screens on restaurant WiFi; print agent on the restaurant PC |
 | GST and service charge | Off for now. Kept as settings (default 0) so they can be switched on later |
 | Payments | Cash and UPI, recorded manually by the cashier. No payment gateway |
 | Discounts | Cashier only, from the PC. Not available in the waiter app |
-| Order edits | New KOT shown on the affected station screen(s) with added/cancelled items and an "EDITED" flag |
+| Order edits | New ticket shown on the affected station screen(s) with added/cancelled items and an "EDITED" flag |
 | Delivery | No tracking, no delivery-staff assignment. Order carries customer name, phone, address |
 | Customers | Remembered by phone number to prefill repeat delivery/takeaway orders |
 | Reports | Daily sales, item-wise, cash vs UPI, order-type split, waiter-wise, kitchen prep time per station |
@@ -52,13 +51,12 @@ The restaurant has two floors: 3 tables on the ground floor and 13 on the first 
 - Online or customer-facing booking and ordering
 - Delivery partner integrations and delivery tracking
 - Payment gateways, GST invoicing, loyalty and coupons
-- KOT printers (removed; a fallback "print KOT" is a later enhancement)
 - Customer-facing order-status screens
 - Multi-restaurant support
 
 **Assumptions to confirm**
 
-- Cancelling an item after the KOT is sent needs no approval but is logged with user and time.
+- Cancelling an item after the ticket is sent needs no approval but is logged with user and time.
 - One bill printer exists at the cashier counter.
 - Each station screen is a touch device (so cooks can tap Start / Ready). A non-touch TV would need a bump bar or a view-only mode.
 - Station screens sit on the restaurant WiFi with a stable connection; a station screen going offline must be visible to the cashier immediately.
@@ -69,11 +67,11 @@ Four staff roles plus one device role, each with a fixed permission set. Waiters
 
 | Role | Device | Can do | Cannot do |
 | --- | --- | --- | --- |
-| Waiter | Own phone (PWA) | Pick table, take dine-in/takeaway/delivery orders, send KOT, add or remove items on an open order, see own orders' KOT status (preparing / ready), mark ready KOTs served, request bill | Apply discounts, take payment, view reports, edit menu or staff |
-| Cashier | Restaurant PC | Everything a waiter can, plus bill, apply discount, record cash/UPI payment, see all KOT statuses, resend a KOT to a station screen, reprint bills, view today's sales | Manage staff, edit menu, change settings |
+| Waiter | Own phone (PWA) | Pick table, take dine-in/takeaway/delivery orders, send orders to the kitchen, add or remove items on an open order, see own orders' ticket status (preparing / ready), mark ready tickets served, request bill | Apply discounts, take payment, view reports, edit menu or staff |
+| Cashier | Restaurant PC | Everything a waiter can, plus bill, apply discount, record cash/UPI payment, see all ticket statuses, resend a ticket to a station screen, reprint bills, view today's sales | Manage staff, edit menu, change settings |
 | Manager | Restaurant PC | Everything a cashier can, plus reports and menu availability toggles | Manage staff roles and settings |
 | Owner/Admin | Restaurant PC or phone | Everything, including staff and station-screen accounts, menu designer, tables, bill printer, settings, all reports and audit log | None |
-| **Kitchen (station screen)** | Tablet/monitor at one station | See open KOTs for **its own station only**, mark Preparing / Ready / Served, recall the last cleared KOT, mark its own station's dishes in or out of stock | Everything else: no orders, billing, menu editing, reports or other stations |
+| **Kitchen (station screen)** | Tablet/monitor at one station | See open tickets for **its own station only**, mark Preparing / Ready / Served, recall the last cleared ticket, mark its own station's dishes in or out of stock | Everything else: no orders, billing, menu editing, reports or other stations |
 
 A kitchen account is bound to exactly one station when the owner creates it. It is a device account, not a person: it stays logged in all day and refreshes its token silently.
 
@@ -81,8 +79,8 @@ A kitchen account is bound to exactly one station when the owner creates it. It 
 
 - Discount endpoints require the cashier role or higher and are not exposed in the waiter app.
 - A waiter sees and edits only orders they opened, unless a cashier or higher reassigns it.
-- A kitchen account can only read and update KOTs whose station matches its own; every staff endpoint rejects it.
-- Deactivated staff or screens cannot log in but their past orders, KOTs and reports stay intact.
+- A kitchen account can only read and update tickets whose station matches its own; every staff endpoint rejects it.
+- Deactivated staff or screens cannot log in but their past orders, tickets and reports stay intact.
 
 ## Architecture
 
@@ -128,22 +126,22 @@ Phones, station screens and the cashier panel all talk to one cloud server over 
 - Order status: open, billed, paid, cancelled.
 - Transfer an order to another table; merge two tables' orders into one bill (cashier).
 
-**M5. KOT and station screens (KDS)**
+**M5. Kitchen tickets and station screens (KDS)**
 
-- Sending an order creates one KOT per station that has items, so one order can produce up to three KOTs. Each appears on its station's screen within 2 seconds.
-- A KOT's content is immutable. Each has a running number, order reference, order type with table or customer, waiter, time and items. Only its kitchen status changes.
-- KOT kitchen status: **new → preparing → ready → served**. The station screen taps move it forward; "served" is set by the waiter (or by the station's Clear button for takeaway/delivery handed over at the pass).
-- Edits after sending create a new KOT with an "EDITED" flag listing items under ADD and CANCEL, shown only on the affected stations, and referencing the original KOT number.
+- Sending an order creates one ticket per station that has items, so one order can produce up to three tickets. Each appears on its station's screen within 2 seconds.
+- A ticket's content is immutable. Each has a running number, order reference, order type with table or customer, waiter, time and items. Only its kitchen status changes.
+- Ticket kitchen status: **new → preparing → ready → served**. The station screen taps move it forward; "served" is set by the waiter (or by the station's Clear button for takeaway/delivery handed over at the pass).
+- Edits after sending create a new ticket with an "EDITED" flag listing items under ADD and CANCEL, shown only on the affected stations, and referencing the original ticket number.
 - A station screen shows:
   - Columns or lanes for New, Preparing and Ready, oldest first.
-  - Each card: KOT number, order type and table/customer, waiter, elapsed time, items with qty/portion/note, and the EDITED flag in red.
+  - Each card: ticket number, order type and table/customer, waiter, elapsed time, items with qty/portion/note, and the EDITED flag in red.
   - Elapsed timer turns amber after the "warn" threshold and red after the "late" threshold (settings, default 10 and 15 minutes).
-  - A sound and a flash when a new or edited KOT arrives (sound can be muted in settings).
-  - Recall: bring back the last cleared KOT for 5 minutes in case of a mis-tap.
-  - A connection indicator; on reconnect the screen reloads all open KOTs for its station.
-- The waiter app shows each sent KOT's status on the open order and a "Ready" notification for the waiter's own orders.
-- The cashier panel shows every station screen's online/offline status, and any KOT not acknowledged by a screen within 10 seconds as an alert with a "Resend" button.
-- Cashier can resend any KOT to its station screen; resends are labelled "RESENT" on the card and logged.
+  - A sound and a flash when a new or edited ticket arrives (sound can be muted in settings).
+  - Recall: bring back the last cleared ticket for 5 minutes in case of a mis-tap.
+  - A connection indicator; on reconnect the screen reloads all open tickets for its station.
+- The waiter app shows each sent ticket's status on the open order and a "Ready" notification for the waiter's own orders.
+- The cashier panel shows every station screen's online/offline status, and any ticket not acknowledged by a screen within 10 seconds as an alert with a "Resend" button.
+- Cashier can resend any ticket to its station screen; resends are labelled "RESENT" on the card and logged.
 
 **M6. Bill printing**
 
@@ -172,14 +170,14 @@ Phones, station screens and the cashier panel all talk to one cloud server over 
 - Cash vs UPI totals.
 - Order-type split: dine-in vs takeaway vs delivery.
 - Waiter-wise sales (orders and revenue per waiter).
-- **Kitchen performance: per station, KOT count and average/longest time from sent to ready.**
+- **Kitchen performance: per station, ticket count and average/longest time from sent to ready.**
 - All reports take a date range, and export to CSV.
 - End-of-day summary the cashier can print.
 
 **M10. Admin and settings**
 
 - Staff and station-screen management, menu designer, table management, bill printer IP, restaurant name and address for the bill header, GST and service-charge toggles, KDS warn/late thresholds and sound.
-- Audit log: KOT edits, KOT status changes, resends, item cancellations, discounts, voids, bill reprints, logins.
+- Audit log: ticket edits and status changes, resends, item cancellations, discounts, voids, bill reprints, logins.
 
 ## Data model (MongoDB)
 
@@ -193,11 +191,11 @@ Ten collections plus an audit log. Prices and item names are snapshotted into or
 | `MenuItem` | name, categoryId, price, station, isVeg, portions\[\], available, active | Station: fried\_chicken, juice, main |
 | `Customer` | phone (unique), name, addresses\[\], orderCount, lastOrderAt | Prefill for takeaway and delivery |
 | `Order` | number, type, tableId, waiterId, customerId, customerSnapshot, status, items\[\], createdAt | Type: dine\_in, takeaway, delivery. One open order per table |
-| `KOT` | number, orderId, station, context{orderNumber, orderType, tableLabel, waiterName, customer}, items\[\], isEdited, againstKotNumber, addedItems\[\], cancelledItems\[\], status, deliveredAt, startedAt, readyAt, servedAt, resendCount, createdBy | Content immutable; status: new, preparing, ready, served |
+| `Ticket` | number, orderId, station, context{orderNumber, orderType, tableLabel, waiterName, customer}, items\[\], isEdited, againstTicketNumber, addedItems\[\], cancelledItems\[\], status, deliveredAt, startedAt, readyAt, servedAt, resendCount, createdBy | Content immutable; status: new, preparing, ready, served |
 | `Bill` | number, orderId, itemsSnapshot\[\], closedBy, closedByName, subtotal, discount{type, value, reason, appliedBy}, gst, serviceCharge, total, payments\[\], status, paidAt | Status: open, paid, void |
 | `PrintJob` | type (bill, test), targetIp, payload, status, attempts, lastError | Bill printing queue; survives restarts |
 | `Settings` | restaurantName, address, phone (one or more), billFooter, billFooterNote, printLogo, gstEnabled, gstRate, serviceChargeEnabled, serviceChargePercent, billPrinterIp, kdsWarnMinutes, kdsLateMinutes, kdsSoundEnabled | Single document |
-| `AuditLog` | action, userId, entity, entityId, before, after, createdAt | KOT edits/status/resends, cancellations, discounts, voids, reprints, logins |
+| `AuditLog` | action, userId, entity, entityId, before, after, createdAt | Ticket edits/status/resends, cancellations, discounts, voids, reprints, logins |
 
 **Order item shape**
 
@@ -206,8 +204,8 @@ Ten collections plus an audit log. Prices and item names are snapshotted into or
 **Key rules**
 
 - Unique index on open order per table so a table cannot have two open orders.
-- KOT numbers and order numbers run in sequence per day (reset at the restaurant's day-end), and bill numbers run in a continuous sequence.
-- Indexes: `Order(createdAt)`, `Order(waiterId, createdAt)`, `Bill(paidAt)`, `Customer(phone)`, `KOT(orderId)`, `KOT(station, status, createdAt)`.
+- Ticket numbers and order numbers run in sequence per day (reset at the restaurant's day-end), and bill numbers run in a continuous sequence.
+- Indexes: `Order(createdAt)`, `Order(waiterId, createdAt)`, `Bill(paidAt)`, `Customer(phone)`, `Ticket(orderId)`, `Ticket(station, status, createdAt)`.
 - Day boundaries use Asia/Kolkata time.
 
 ## API and real-time events
@@ -221,8 +219,8 @@ REST over HTTPS under `/api/v1`, JWT bearer auth, role checks in middleware. Soc
 | Tables | `GET /tables`, `POST /tables`, `PATCH /tables/:id`, `POST /tables/:id/request-bill` | any / owner / waiter |
 | Menu | `GET /menu`, `POST/PATCH/DELETE /categories`, `POST/PATCH/DELETE /items`, `PATCH /items/:id/availability` | any / owner; availability: manager |
 | Orders | `POST /orders`, `GET /orders?status=&type=`, `GET /orders/:id`, `POST /orders/:id/items`, `PATCH /orders/:id/items/:itemId/cancel`, `POST /orders/:id/transfer`, `POST /orders/merge` | waiter; transfer/merge: cashier |
-| KOT (staff) | `GET /orders/:id/kots`, `GET /kots?status=&station=`, `POST /kots/:id/served`, `POST /kots/:id/resend` | waiter / cashier for resend |
-| KOT (station) | `GET /kds/kots` (own station, open only), `POST /kds/kots/:id/status` {preparing, ready, served}, `POST /kds/kots/:id/recall`, `GET /kds/menu`, `PATCH /kds/items/:id/availability` (own station's dishes) | kitchen |
+| Ticket (staff) | `GET /orders/:id/tickets`, `GET /tickets?status=&station=`, `POST /tickets/:id/served`, `POST /tickets/:id/resend` | waiter / cashier for resend |
+| Ticket (station) | `GET /kds/tickets` (own station, open only), `POST /kds/tickets/:id/status` {preparing, ready, served}, `POST /kds/tickets/:id/recall`, `GET /kds/menu`, `PATCH /kds/items/:id/availability` (own station's dishes) | kitchen |
 | Billing | `POST /orders/:id/bill`, `POST /bills/:id/discount`, `POST /bills/:id/payments`, `POST /bills/:id/close`, `POST /bills/:id/void`, `POST /bills/:id/reprint` | cashier; void: owner |
 | Customers | `GET /customers/lookup?phone=` | waiter |
 | Reports | `GET /reports/daily`, `/reports/items`, `/reports/payments`, `/reports/order-types`, `/reports/waiters`, `/reports/kitchen`, `GET /reports/*?format=csv` | manager |
@@ -237,18 +235,18 @@ REST over HTTPS under `/api/v1`, JWT bearer auth, role checks in middleware. Soc
 | `table:updated` | server to all staff | Table status changes, keeps every phone's grid current |
 | `order:updated` | server to cashier panel and owning waiter | New items, cancellations, status |
 | `menu:updated` | server to all clients | Availability or price change |
-| `kot:new` | server to `station:<station>` room | A new, edited or resent KOT for that station screen |
-| `kot:received` | station screen to server (with ack) | Screen confirms the KOT is displayed; sets `deliveredAt` |
-| `kot:updated` | server to station room, cashier panel and owning waiter | Status change (preparing, ready, served, recalled) |
+| `ticket:new` | server to `station:<station>` room | A new, edited or resent ticket for that station screen |
+| `ticket:received` | station screen to server (with ack) | Screen confirms the ticket is displayed; sets `deliveredAt` |
+| `ticket:updated` | server to station room, cashier panel and owning waiter | Status change (preparing, ready, served, recalled) |
 | `kds:status` | server to cashier panel | Which station screens are online |
-| `kot:undelivered` | server to cashier panel | A KOT not acknowledged by its screen within 10 seconds |
+| `ticket:undelivered` | server to cashier panel | A ticket not acknowledged by its screen within 10 seconds |
 | `print:job` | server to print agent | Bill or test-print payload with target printer IP |
 | `print:result` | print agent to server | Success or failure with error, drives retry and alerts |
 | `agent:status` | print agent to server; server to cashier | Heartbeat every 15 seconds; cashier panel shows agent online/offline |
 
 **Conventions**
 
-- Order creation and add-items take a client-generated `clientRequestId` so a retry from the offline queue never creates a duplicate order, item or KOT.
+- Order creation and add-items take a client-generated `clientRequestId` so a retry from the offline queue never creates a duplicate order, item or ticket.
 - Errors use one shape: `{ code, message, details }`.
 - All list endpoints paginate; report endpoints take `from` and `to` dates in Asia/Kolkata.
 - Socket connections authenticate with the current access token on every (re)connect, so screens survive token expiry.
@@ -257,7 +255,7 @@ REST over HTTPS under `/api/v1`, JWT bearer auth, role checks in middleware. Soc
 
 Screens are landscape tablets or monitors (minimum 1024 px wide), dark background, large type readable from 2 metres. One screen per station.
 
-**Standard KOT card**
+**Standard ticket card**
 
 ```text
 ┌──────────────────────────────┐
@@ -272,7 +270,7 @@ Screens are landscape tablets or monitors (minimum 1024 px wide), dark backgroun
 └──────────────────────────────┘
 ```
 
-**Edited KOT card** (red border and red "EDITED" banner so the kitchen cannot miss it)
+**Edited ticket card** (red border and red "EDITED" banner so the kitchen cannot miss it)
 
 ```text
 ┌──────── EDITED · vs #014 ────┐
@@ -300,9 +298,9 @@ Screens are landscape tablets or monitors (minimum 1024 px wide), dark backgroun
 
 **Failure handling**
 
-- Each screen confirms every KOT with `kot:received`. A KOT not confirmed within 10 seconds raises an alert in the cashier panel with a Resend button.
-- If a station screen is offline, the cashier panel shows a red banner naming the station. KOTs are still stored on the server; the screen loads every open KOT for its station when it reconnects, so nothing is lost.
-- The server never deletes or alters a KOT's content; status changes are logged.
+- Each screen confirms every ticket with `ticket:received`. A ticket not confirmed within 10 seconds raises an alert in the cashier panel with a Resend button.
+- If a station screen is offline, the cashier panel shows a red banner naming the station. Tickets are still stored on the server; the screen loads every open ticket for its station when it reconnects, so nothing is lost.
+- The server never deletes or alters a ticket's content; status changes are logged.
 
 ## Bill print specification
 
@@ -345,22 +343,22 @@ Paid by     : CASH 65.00
 
 | Area | Requirement |
 | --- | --- |
-| Speed | Order send to KOT visible on the station screen in under 2 seconds on normal 4G or WiFi; menu loads in under 1 second after first visit (cached) |
-| Reliability | Waiter app queues orders offline and retries with the same `clientRequestId`, so no duplicates and no lost orders; station screens resync all open KOTs on reconnect |
-| Kitchen visibility | Station screen online/offline visible to the cashier within 15 seconds; undelivered KOT alert within 10 seconds |
+| Speed | Order send to ticket visible on the station screen in under 2 seconds on normal 4G or WiFi; menu loads in under 1 second after first visit (cached) |
+| Reliability | Waiter app queues orders offline and retries with the same `clientRequestId`, so no duplicates and no lost orders; station screens resync all open tickets on reconnect |
+| Kitchen visibility | Station screen online/offline visible to the cashier within 15 seconds; undelivered ticket alert within 10 seconds |
 | Print safety | Every bill print job is stored and acknowledged; failures retry and then alert the cashier; jobs survive an agent restart |
 | Availability | Target 99% during opening hours; daily MongoDB backup with 7-day retention |
 | Security | HTTPS only, hashed PINs and passwords (bcrypt), JWT with short expiry and refresh, role checks on every route, kitchen accounts restricted to their station, rate-limited login, secrets in environment variables only |
-| Data integrity | Paid bills and sent KOT content are immutable; corrections create new records; all sensitive actions go to the audit log |
+| Data integrity | Paid bills and sent ticket content are immutable; corrections create new records; all sensitive actions go to the audit log |
 | Mobile UX | One-handed use, tap targets of at least 44 px, works from 360 px width, installable PWA |
-| Kitchen UX | Landscape, dark theme, readable at 2 m, 64 px tap targets, screen kept awake (Wake Lock), audible alert on new KOT |
+| Kitchen UX | Landscape, dark theme, readable at 2 m, 64 px tap targets, screen kept awake (Wake Lock), audible alert on new ticket |
 | Privacy | Customer phone numbers and addresses are visible only to cashier roles and above in reports; excluded from CSV exports unless the owner opts in. Station screens show customer name only (plus phone for delivery) |
 | Time | All timestamps stored in UTC, displayed and bucketed in Asia/Kolkata |
 | Maintainability | One repo with three packages (server, web app, print agent), shared TypeScript types, environment-based config |
 
 ## Build order
 
-The backend core and station screens come before the waiter app, because the waiter app can only be tested properly once a KOT appears in the kitchen. Billing follows, then customers, reports and hardening.
+The backend core and station screens come before the waiter app, because the waiter app can only be tested properly once a ticket appears in the kitchen. Billing follows, then customers, reports and hardening.
 
 ## Detailed todo list
 
@@ -395,43 +393,43 @@ Work top to bottom. Each phase ends with an exit check; do not start the next ph
 - [ ] `menu:updated` and `table:updated` socket events
 - [ ] **Exit:** owner builds the real menu and the 16 tables; changes appear live on a second device
 
-### Phase 3. Orders and KOT (backend core)
+### Phase 3. Orders and kitchen tickets (backend core)
 
-- [ ] `Order`, `KOT`, `AuditLog` models; unique index for one open order per table
+- [ ] `Order`, `Ticket`, `AuditLog` models; unique index for one open order per table
 - [ ] `POST /orders` and `POST /orders/:id/items` with `clientRequestId` idempotency
 - [ ] Item snapshotting (name, price, station) at add time
-- [ ] KOT generator: split items by station, one KOT per station, daily sequence numbers, context snapshot (table, waiter, customer)
-- [ ] Edited KOTs for adds and cancels, referencing the original KOT
+- [ ] Ticket generator: split items by station, one ticket per station, daily sequence numbers, context snapshot (table, waiter, customer)
+- [ ] Edited tickets for adds and cancels, referencing the original ticket
 - [ ] Table status automation (free, occupied, billing) including waiter request-bill
 - [ ] Order transfer and merge (cashier)
-- [ ] Audit log writes for edits, cancellations and KOT status changes
-- [ ] Unit tests for KOT splitting, edit KOTs and idempotency
-- [ ] **Exit:** API tests create orders, edits and cancels produce the correct KOTs
+- [ ] Audit log writes for edits, cancellations and ticket status changes
+- [ ] Unit tests for ticket splitting, edit tickets and idempotency
+- [ ] **Exit:** API tests create orders, edits and cancels produce the correct tickets
 
 ### Phase 4. Station screens (KDS)
 
-- [ ] Socket rooms per station; `kot:new`, `kot:received`, `kot:updated`, `kds:status`, `kot:undelivered`
-- [ ] KDS endpoints: list own open KOTs, status transitions, recall
+- [ ] Socket rooms per station; `ticket:new`, `ticket:received`, `ticket:updated`, `kds:status`, `ticket:undelivered`
+- [ ] KDS endpoints: list own open tickets, status transitions, recall
 - [ ] Station screen page: New / Preparing / Ready lanes, timers with warn/late colours, EDITED and RESENT styling, sound, wake lock, reconnect resync
-- [ ] Waiter app: KOT status on the open order, "ready" notification, mark served
+- [ ] Waiter app: Ticket status on the open order, "ready" notification, mark served
 - [ ] Cashier panel: station online/offline indicators, undelivered alerts with Resend
 - [ ] Settings: KDS warn/late minutes and sound toggle
-- [ ] **Exit:** a KOT sent via the API appears on the correct station screen; switching a screen off raises an alert and it catches up on reconnect
+- [ ] **Exit:** a ticket sent via the API appears on the correct station screen; switching a screen off raises an alert and it catches up on reconnect
 
 ### Phase 5. Waiter PWA
 
 - [ ] Mobile-first layout, installable PWA manifest and service worker
 - [ ] Floor switcher and live table grid over Socket.IO
-- [ ] Order type picker, menu browser, add-item sheet, cart and Send KOT
-- [ ] Open order view with Add item and Cancel item (shows the EDITED KOT result)
+- [ ] Order type picker, menu browser, add-item sheet, cart and Send order
+- [ ] Open order view with Add item and Cancel item (shows the EDITED ticket result)
 - [ ] Offline queue in IndexedDB; retry with the same `clientRequestId`; visible "queued" badge
 - [ ] Request bill button that sets the table to billing
-- [ ] **Exit:** two waiters on two phones order on different tables, KOTs appear on screens, and an order sent in airplane mode arrives once on reconnect
+- [ ] **Exit:** two waiters on two phones order on different tables, tickets appear on screens, and an order sent in airplane mode arrives once on reconnect
 
 ### Phase 6. Cashier panel, billing and bill printing
 
 - [ ] `Bill` model and bill-number sequence
-- [ ] Cashier home: live open orders by floor and by type, with KOT status
+- [ ] Cashier home: live open orders by floor and by type, with ticket status
 - [ ] Bill generation, discount, payments (cash/UPI/split), close, void, reprint
 - [ ] Print agent for bills: persisted `PrintJob`, `print:result`, 3 retries, drain on reconnect, `agent:status`
 - [ ] Settings: bill printer IP and test print; GST and service charge toggles
@@ -460,7 +458,7 @@ Work top to bottom. Each phase ends with an exit check; do not start the next ph
 - [ ] Dry run: one full simulated service with real station screens, bill printer and staff phones
 - [ ] Staff guides (waiter, cashier, kitchen) and an owner guide
 - [ ] Deploy to production, sign in the station screens, point the print agent at it, hand over credentials
-- [ ] **Exit:** a live service day with no lost or duplicated KOT
+- [ ] **Exit:** a live service day with no lost or duplicated ticket
 
 ## Risks, open questions and later enhancements
 
@@ -468,22 +466,21 @@ Work top to bottom. Each phase ends with an exit check; do not start the next ph
 
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
-| Station screen loses WiFi or power | Kitchen doesn't see new KOTs | KOTs stored server-side, resync on reconnect, offline banner and undelivered alert at the cashier, waiter sees KOT still "new"; screen on a UPS/charger |
-| Screen sleeps or browser tab closed | KOTs not seen | Wake Lock, kiosk mode / installed PWA, auto-login with long-lived refresh |
+| Station screen loses WiFi or power | Kitchen doesn't see new tickets | Tickets stored server-side, resync on reconnect, offline banner and undelivered alert at the cashier, waiter sees ticket still "new"; screen on a UPS/charger |
+| Screen sleeps or browser tab closed | Tickets not seen | Wake Lock, kiosk mode / installed PWA, auto-login with long-lived refresh |
 | Cook mis-taps Ready or Clear | Order looks done when it isn't | Recall for 5 minutes; every status change logged |
-| Kitchen noise hides new KOT | Delay | Loud chime plus full-screen flash on new and edited KOTs |
+| Kitchen noise hides new ticket | Delay | Loud chime plus full-screen flash on new and edited tickets |
 | Print agent PC is off (bills only) | Bill not printed | Server-side job queue, offline banner, reprint, agent starts on boot |
 | Weak mobile signal at a waiter | Order delayed | Offline queue with idempotent retry, visible queued badge |
-| Waiter sends the same order twice | Duplicate KOT in the kitchen | `clientRequestId` idempotency on create and add-items, and an "already sent" guard in the app |
+| Waiter sends the same order twice | Duplicate ticket in the kitchen | `clientRequestId` idempotency on create and add-items, and an "already sent" guard in the app |
 | Cloud outage during service | System unusable | Backups; later option to run the server on the restaurant PC with cloud sync |
 | Staff share one PIN | Weak audit trail | Unique PIN per waiter, enforced at creation |
 
 **Open questions for you to confirm**
 
 - [ ] Are the station screens touch devices (tablets/touch monitors), or plain TVs that need a bump bar / view-only mode?
-- [ ] Who marks a KOT "served": the waiter on the phone, the station on Clear, or both (current plan: both)?
-- [ ] Should a KOT printer remain as a fallback at any station (current plan: no)?
-- [ ] Do item cancellations after a KOT need cashier approval, or only a log entry (current plan: log only)?
+- [ ] Who marks a ticket "served": the waiter on the phone, the station on Clear, or both (current plan: both)?
+- [ ] Do item cancellations after a ticket need cashier approval, or only a log entry (current plan: log only)?
 - [ ] Do you want a Manager role between cashier and owner (current plan: included)?
 - [ ] What are the default warn/late times per station (current plan: 10 and 15 minutes for all)?
 - [ ] Should split payment (part cash, part UPI) be supported (current plan: yes)?
@@ -492,8 +489,7 @@ Work top to bottom. Each phase ends with an exit check; do not start the next ph
 **Later enhancements (not in the prototype)**
 
 - Per-item status on the station screen (tick off items individually)
-- Expo/pass screen showing all stations' ready KOTs
-- Optional fallback KOT printer per station
+- Expo/pass screen showing all stations' ready tickets
 - Customer-facing "order ready" screen for takeaway
 - GST invoicing and service charge in production use
 - Table booking, inventory, loyalty, aggregator integration, multi-restaurant support

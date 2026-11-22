@@ -43,7 +43,7 @@ export const routes: Routes = [
     loadComponent: () => import('./features/waiter/waiter-main.component').then((m) => m.WaiterMainComponent),
   },
   {
-    // Kitchen station screen (KDS) — replaces the station KOT printers
+    // Kitchen station screen (KDS) — one screen per kitchen station
     path: 'kds',
     canActivate: [kitchenGuard],
     title: 'Station screen · Copakapana',

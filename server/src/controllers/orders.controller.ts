@@ -4,11 +4,11 @@ import { AuditLog } from '../models/AuditLog';
 import { Bill } from '../models/Bill';
 import { Counter } from '../models/Counter';
 import { Customer } from '../models/Customer';
-import { KOT } from '../models/KOT';
+import { Ticket } from '../models/Ticket';
 import { MenuItem } from '../models/MenuItem';
 import { IOrder, IOrderItemDocument, Order } from '../models/Order';
 import { Table } from '../models/Table';
-import { KotService } from '../services/kot.service';
+import { TicketService } from '../services/ticket.service';
 import { emitOrderUpdated, emitTableUpdated } from '../socket';
 import { ItemStatus, OrderStatus, OrderType, Role, TableStatus } from '../types';
 
@@ -175,8 +175,8 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
     emitTableUpdated(table);
   }
 
-  // 7. Generate initial KOTs → pushed live to each station screen
-  const kots = await KotService.generateInitialKOTs(order, order.items, waiterId);
+  // 7. Generate initial tickets → pushed live to each station screen
+  const tickets = await TicketService.generateInitialTickets(order, order.items, waiterId);
 
   // 8. Audit & WebSockets
   await AuditLog.create({
@@ -189,7 +189,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
 
   emitOrderUpdated(waiterId.toString(), order);
 
-  res.status(201).json({ order, kots });
+  res.status(201).json({ order, tickets });
 };
 
 export const listOrders = async (req: Request, res: Response): Promise<void> => {
@@ -233,12 +233,12 @@ export const getOrder = async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  const kots = await KOT.find({ orderId: order._id }).sort({ createdAt: 1 });
+  const tickets = await Ticket.find({ orderId: order._id }).sort({ createdAt: 1 });
   // Latest bill (if any) — only for cashier and above
   const bill =
     req.user?.role === Role.Waiter ? null : await Bill.findOne({ orderId: order._id }).sort({ createdAt: -1 });
 
-  res.json({ order, kots, bill });
+  res.json({ order, tickets, bill });
 };
 
 export const addItemsToOrder = async (req: Request, res: Response): Promise<void> => {
@@ -257,7 +257,7 @@ export const addItemsToOrder = async (req: Request, res: Response): Promise<void
   }
   // Idempotency: an offline-queue retry of an already-applied add is a no-op
   if (clientRequestId && order.appliedRequestIds?.includes(clientRequestId)) {
-    res.json({ order, editedKots: [], isDuplicate: true });
+    res.json({ order, editedTickets: [], isDuplicate: true });
     return;
   }
   if (order.status !== OrderStatus.Open) {
@@ -302,9 +302,9 @@ export const addItemsToOrder = async (req: Request, res: Response): Promise<void
   if (clientRequestId) order.appliedRequestIds.push(clientRequestId);
   await order.save();
 
-  // EDITED KOT (ADD lines) on each affected station screen
+  // EDITED ticket (ADD lines) on each affected station screen
   const addedDocList = order.items.slice(order.items.length - newlyAddedItems.length);
-  const editedKots = await KotService.generateEditedKOTs(order, addedDocList, [], userId);
+  const editedTickets = await TicketService.generateEditedTickets(order, addedDocList, [], userId);
 
   await AuditLog.create({
     action: 'order_items_added',
@@ -316,7 +316,7 @@ export const addItemsToOrder = async (req: Request, res: Response): Promise<void
 
   emitOrderUpdated(order.waiterId.toString(), order);
 
-  res.json({ order, editedKots });
+  res.json({ order, editedTickets });
 };
 
 export const cancelOrderItem = async (req: Request, res: Response): Promise<void> => {
@@ -342,8 +342,8 @@ export const cancelOrderItem = async (req: Request, res: Response): Promise<void
   itemToCancel.status = ItemStatus.Cancelled;
   await order.save();
 
-  // EDITED KOT (CANCEL line) on the item's station screen
-  const editedKots = await KotService.generateEditedKOTs(order, [], [itemToCancel], userId);
+  // EDITED ticket (CANCEL line) on the item's station screen
+  const editedTickets = await TicketService.generateEditedTickets(order, [], [itemToCancel], userId);
 
   await AuditLog.create({
     action: 'order_item_cancelled',
@@ -356,7 +356,7 @@ export const cancelOrderItem = async (req: Request, res: Response): Promise<void
 
   emitOrderUpdated(order.waiterId.toString(), order);
 
-  res.json({ order, editedKots });
+  res.json({ order, editedTickets });
 };
 
 export const transferOrder = async (req: Request, res: Response): Promise<void> => {
@@ -515,7 +515,7 @@ export const cancelOrder = async (req: Request, res: Response): Promise<void> =>
   }
   order.status = OrderStatus.Cancelled;
   await order.save();
-  if (active.length) await KotService.generateEditedKOTs(order, [], active, userId);
+  if (active.length) await TicketService.generateEditedTickets(order, [], active, userId);
 
   // Free the table (only if no other open order holds it)
   if (order.tableId) {

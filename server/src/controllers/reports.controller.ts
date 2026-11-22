@@ -123,8 +123,8 @@ export const getKitchenReport = async (req: Request, res: Response): Promise<voi
     const csv = toCsv(
       [
         { header: 'Station', key: 'station' },
-        { header: 'KOTs', key: 'kotCount' },
-        { header: 'Edited KOTs', key: 'editedCount' },
+        { header: 'Tickets', key: 'ticketCount' },
+        { header: 'Edited tickets', key: 'editedCount' },
         { header: 'Avg Sent-to-Ready (min)', key: 'avgPrepMinutes' },
         { header: 'Longest Sent-to-Ready (min)', key: 'maxPrepMinutes' },
       ],

@@ -20,7 +20,7 @@ $ErrorActionPreference = 'Stop'
 $src = @"
 using System;
 using System.Runtime.InteropServices;
-public static class KotRawPrinter {
+public static class CopaRawPrinter {
   [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
   public class DOCINFO {
     [MarshalAs(UnmanagedType.LPWStr)] public string pDocName;
@@ -53,8 +53,8 @@ public static class KotRawPrinter {
   }
 }
 "@
-if (-not ('KotRawPrinter' -as [type])) { Add-Type -TypeDefinition $src }
-[KotRawPrinter]::Send($Printer, [IO.File]::ReadAllBytes($Path))
+if (-not ('CopaRawPrinter' -as [type])) { Add-Type -TypeDefinition $src }
+[CopaRawPrinter]::Send($Printer, [IO.File]::ReadAllBytes($Path))
 Write-Output 'PRINTED'
 `;
 
@@ -62,7 +62,7 @@ let scriptPath: string | null = null;
 
 const ensureScript = async (): Promise<string> => {
   if (scriptPath) return scriptPath;
-  const p = path.join(os.tmpdir(), 'kot-rawprint.ps1');
+  const p = path.join(os.tmpdir(), 'copa-rawprint.ps1');
   await fs.writeFile(p, PS_SCRIPT, 'utf8');
   scriptPath = p;
   return p;
@@ -89,7 +89,7 @@ export class WindowsPrinter {
     if (process.platform !== 'win32') throw new Error('printer:<name> addresses only work when the print agent runs on Windows');
     const name = this.printerName(target);
     const script = await ensureScript();
-    const file = path.join(os.tmpdir(), `kot-print-${Date.now()}-${Math.random().toString(36).slice(2)}.bin`);
+    const file = path.join(os.tmpdir(), `copa-print-${Date.now()}-${Math.random().toString(36).slice(2)}.bin`);
     await fs.writeFile(file, buffer);
     try {
       // -ExecutionPolicy Bypass applies to this one process only; the PC's policy is not changed

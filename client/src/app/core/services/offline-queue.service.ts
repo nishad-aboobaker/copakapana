@@ -14,6 +14,9 @@ export interface QueuedOrder {
   retryCount: number;
 }
 
+const QUEUE_KEY = 'pos_offline_queue';
+const LEGACY_QUEUE_KEY = 'kot_offline_queue';
+
 @Injectable({
   providedIn: 'root',
 })
@@ -122,7 +125,8 @@ export class OfflineQueueService {
   }
 
   private getStoredQueue(): QueuedOrder[] {
-    const data = localStorage.getItem('kot_offline_queue');
+    // Older versions stored the queue under 'kot_offline_queue'; keep reading it so no order is lost
+    const data = localStorage.getItem(QUEUE_KEY) ?? localStorage.getItem(LEGACY_QUEUE_KEY);
     if (!data) return [];
     try {
       return JSON.parse(data);
@@ -132,7 +136,8 @@ export class OfflineQueueService {
   }
 
   private saveQueue(queue: QueuedOrder[]): void {
-    localStorage.setItem('kot_offline_queue', JSON.stringify(queue));
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    localStorage.removeItem(LEGACY_QUEUE_KEY);
     this.queueSubject.next(queue);
   }
 }

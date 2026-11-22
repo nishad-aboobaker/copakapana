@@ -1,8 +1,7 @@
-# 🍽️ Restaurant KOT & Billing System — Master Build Checklist
+# 🍽️ Restaurant POS & Kitchen Display — Master Build Checklist
 
 > **Stack:** Node/Express/MongoDB · Angular PWA (waiter, kitchen station screens, cashier/admin) · ESC/POS Print Agent (bills only)  
 > **Structure:** `server/` · `client/` · `print-agent/`  
-> **Revision Nov 21, 2026:** KOT printers were replaced by **kitchen station screens (KDS)**. Phase 4 below is now "Station Screens". The print agent only prints bills. See the PRD for the full change.  
 > Work top to bottom. **Do not start the next phase until its Exit Check passes.**  
 > Mark each task `[x]` when done.
 
@@ -352,7 +351,7 @@
 
 ---
 
-## Phase 3 — Orders & KOT (Backend Core)
+## Phase 3 — Orders & Kitchen Tickets (Backend Core)
 
 ### 3.1 Server — Models
 - [x] `src/models/Counter.ts` — daily sequence helper:
@@ -373,15 +372,15 @@
   - Item shape: `{ menuItemId, name, price, qty, portion, note, station, status (ItemStatus) }`
   - Sparse unique index: `{ tableId: 1 }` with partial filter `{ status: "open" }` — prevents two open orders per table
   - Indexes: `{ createdAt: 1 }`, `{ waiterId: 1, createdAt: 1 }`
-- [x] `src/models/KOT.ts`:
+- [x] `src/models/Ticket.ts`:
   - Fields:
     - `number` (number — daily sequence)
     - `orderId` (ObjectId ref Order, required)
     - `station` (Station enum, required)
     - `items` (array: `{ name, qty, portion, note }`)
     - `isEdited` (boolean, default false)
-    - `addedItems` (array — same shape, for EDITED KOTs)
-    - `cancelledItems` (array — same shape, for EDITED KOTs)
+    - `addedItems` (array — same shape, for EDITED tickets)
+    - `cancelledItems` (array — same shape, for EDITED tickets)
     - `printStatus` (PrintStatus, default pending)
     - `reprintCount` (number, default 0)
     - `createdBy` (ObjectId ref User)
@@ -391,23 +390,22 @@
   - Fields: `action` (string), `userId` (ObjectId), `entity` (string), `entityId` (ObjectId), `before` (Mixed), `after` (Mixed), `createdAt` (Date, default now)
   - Index on `{ createdAt: -1 }`, `{ userId: 1 }`, `{ entity: 1, entityId: 1 }`
 
-### 3.2 Server — KOT Service
-- [x] `src/services/kot.service.ts`:
+### 3.2 Server — ticket Service
+- [x] `src/services/ticket.service.ts`:
   - `splitByStation(items[])` → `Map<Station, items[]>` grouping active items by station
-  - `generateInitialKOTs(orderId, items, waiterId)` → array of KOT documents per station
-  - `generateEditedKOTs(orderId, addedItems, cancelledItems, waiterId)` → array of EDITED KOT documents with ADD and CANCEL sections
+  - `generateInitialTickets(orderId, items, waiterId)` → array of ticket documents per station
+  - `generateEditedTickets(orderId, addedItems, cancelledItems, waiterId)` → array of EDITED ticket documents with ADD and CANCEL sections
   - Dispatches `print:job` events to print agent room over Socket.IO
 
 ### 3.3 Server — Order Endpoints
 - [x] `src/controllers/orders.controller.ts`:
-  - `createOrder()`: `clientRequestId` idempotency, Dine-in/Takeaway/Delivery validation, item snapshotting, daily order counter, table occupancy, KOT creation
+  - `createOrder()`: `clientRequestId` idempotency, Dine-in/Takeaway/Delivery validation, item snapshotting, daily order counter, table occupancy, ticket creation
   - `listOrders()`: filtered by status, type, tableId; role-scoped for waiters
-  - `getOrder()`: order details with associated station KOTs
-  - `addItemsToOrder()`: appends items and generates tagged EDITED KOTs
-  - `cancelOrderItem()`: cancels item and generates tagged EDITED KOT with CANCEL section
+  - `getOrder()`: order details with associated station tickets
+  - `addItemsToOrder()`: appends items and generates tagged EDITED tickets
+  - `cancelOrderItem()`: cancels item and generates tagged EDITED ticket with CANCEL section
   - `transferOrder()`: shifts order to free table, frees source, occupies target
   - `mergeOrders()`: combines items from two open orders into target
-  - `reprintKot()`: increments reprint count and re-emits `print:job`
 - [x] `src/routes/orders.ts`:
   - `POST /orders` — waiter+
   - `GET /orders` — waiter+
@@ -416,58 +414,55 @@
   - `PATCH /orders/:id/items/:itemId/cancel` — waiter+
   - `POST /orders/:id/transfer` — cashier+
   - `POST /orders/merge` — cashier+
-  - `POST /orders/kots/:id/reprint` — cashier+
 
 ### 3.4 Automated Testing & Verification
-- [x] Unit test for `KotService.splitByStation`: verified station grouping across fried_chicken, juice, and main
+- [x] Unit test for `TicketService.splitByStation`: verified station grouping across fried_chicken, juice, and main
 - [x] Unit test for `Counter.nextSeq`: verified sequential auto-increment and daily reset
 - [x] Idempotency verified: re-sending the same `clientRequestId` returns the existing order with no duplicate tickets
 
 ### ✅ Exit Check — Phase 3
-- [x] `POST /api/v1/orders` (dine-in, table T1) → order created, table status = occupied, correct station KOTs generated
-- [x] `POST /api/v1/orders/:id/items` (item from different station) → EDITED KOT created with ADD section
-- [x] `PATCH /api/v1/orders/:id/items/:itemId/cancel` → EDITED KOT created with CANCEL section
+- [x] `POST /api/v1/orders` (dine-in, table T1) → order created, table status = occupied, correct station tickets generated
+- [x] `POST /api/v1/orders/:id/items` (item from different station) → EDITED ticket created with ADD section
+- [x] `PATCH /api/v1/orders/:id/items/:itemId/cancel` → EDITED ticket created with CANCEL section
 - [x] Same `clientRequestId` sent twice → DB has exactly 1 order, response is identical both times
-- [x] Order transfer to another table & KOT reprint verified cleanly
+- [x] Order transfer to another table verified cleanly
 
 ---
 
-## Phase 4 — Kitchen Station Screens (KDS)  *(replaces the KOT print agent)*
+## Phase 4 — Kitchen Station Screens (KDS)
 
 ### 4.1 Server — Kitchen accounts & isolation
 - [x] `Role.Kitchen` (device account) with a required `station` on `User`; PIN login like waiters; JWT carries `station`
 - [x] `requireAuth` rejects kitchen accounts on every staff route; `requireKitchen` for `/kds/*`; `requireAnyAuth` for `/auth/me`, `/auth/logout`, `GET /settings`
 - [x] Staff CRUD supports kitchen accounts (station picker, PIN reset); `GET /users?role=kitchen` is public for the login picker
 
-### 4.2 Server — KOT model & service
-- [x] `KOT` has a context snapshot (order no., type, table/floor, waiter, customer), `status` new → preparing → ready → served, `deliveredAt/startedAt/readyAt/servedAt`, `againstKotNumber`, `resendCount`
-- [x] `KotService`: split by station, EDITED KOTs per affected station, guarded status transitions (station-scoped; staff can only mark served), recall (5 min), resend, delivery confirmation
-- [x] Watchdog: KOTs not confirmed by a screen within 10 s → `kot:undelivered` to cashier panels
-- [x] Startup migration: legacy printed KOTs archived as served; order indexes rebuilt
+### 4.2 Server — Ticket model & service
+- [x] `Ticket` has a context snapshot (order no., type, table/floor, waiter, customer), `status` new → preparing → ready → served, `deliveredAt/startedAt/readyAt/servedAt`, `againstTicketNumber`, `resendCount`
+- [x] `TicketService`: split by station, EDITED tickets per affected station, guarded status transitions (station-scoped; staff can only mark served), recall (5 min), resend, delivery confirmation
+- [x] Watchdog: Tickets not confirmed by a screen within 10 s → `ticket:undelivered` to cashier panels
 
 ### 4.3 Server — Endpoints & sockets
-- [x] `GET /orders/:id/kots`, `GET /kots`, `POST /kots/:id/served`, `POST /kots/:id/resend` (cashier), `GET /kds/status` (cashier)
-- [x] `GET /kds/kots`, `POST /kds/kots/:id/status`, `POST /kds/kots/:id/recall` (kitchen)
-- [x] Socket rooms `station:<station>`; events `kot:new`, `kot:received` (ack), `kot:updated`, `kds:status`, `kds:settings`, `kot:undelivered`
+- [x] `GET /orders/:id/tickets`, `GET /tickets`, `POST /tickets/:id/served`, `POST /tickets/:id/resend` (cashier), `GET /kds/status` (cashier)
+- [x] `GET /kds/tickets`, `POST /kds/tickets/:id/status`, `POST /kds/tickets/:id/recall` (kitchen)
+- [x] Socket rooms `station:<station>`; events `ticket:new`, `ticket:received` (ack), `ticket:updated`, `kds:status`, `kds:settings`, `ticket:undelivered`
 - [x] Settings: `kdsWarnMinutes`, `kdsLateMinutes`, `kdsSoundEnabled`; station printer IPs removed
 
 ### 4.4 Client — Station screen
 - [x] `/login/kitchen` (station picker + PIN) and `/kds` (kitchen-only guard)
 - [x] New / Preparing / Ready lanes, elapsed timers with warn/late colours, EDITED / RESENT styling, chime + flash, recall, mute, wake lock, fullscreen
-- [x] Resync of all open KOTs on every reconnect and when the tab becomes visible; socket re-auths with a fresh token
+- [x] Resync of all open tickets on every reconnect and when the tab becomes visible; socket re-auths with a fresh token
 
 ### 4.5 Client — Waiter, cashier, admin
-- [x] Waiter: kitchen status per KOT on the open order, 🔔 Ready badge/vibration, **Served** button, request bill via `POST /tables/:id/request-bill`
-- [x] Cashier: station screen + agent online strip, offline banner, undelivered-KOT alerts with **Resend**, KOT resend in the reprint panel (read-only lookup)
+- [x] Waiter: kitchen status per ticket on the open order, 🔔 Ready badge/vibration, **Served** button, request bill via `POST /tables/:id/request-bill`
+- [x] Cashier: station screen + agent online strip, offline banner, undelivered-ticket alerts with **Resend**, ticket resend in the reprint panel (read-only lookup)
 - [x] Admin: kitchen station screen accounts in Staff; KDS timers/sound and bill printer in Settings; Kitchen Times report
 
 ### 4.6 Print agent — bills only
 - [x] Bill and test print jobs persisted as `PrintJob`; drained when the agent connects; `print:result` handled; un-acked jobs fail after 25 s; cashier one-click retry
-- [x] KOT formatters removed; bill layout prints address, table/floor or customer, payments and REPRINT line
 
 ### ✅ Exit Check — Phase 4
-- [x] Unit tests (`kds.test.ts`): station split, EDITED KOT, transitions, station isolation, recall, undelivered/resend, order idempotency index
-- [x] End-to-end smoke test on an isolated server: KOT on the correct screen in ~125 ms, ready alert reaches the waiter, offline screen raises an undelivered alert, bill job drained and failure reported
+- [x] Unit tests (`kds.test.ts`): station split, EDITED ticket, transitions, station isolation, recall, undelivered/resend, order idempotency index
+- [x] End-to-end smoke test on an isolated server: Ticket on the correct screen in ~125 ms, ready alert reaches the waiter, offline screen raises an undelivered alert, bill job drained and failure reported
 - [ ] Real-hardware check: 3 station tablets on restaurant WiFi, switch one off mid-service, confirm alert and catch-up on reconnect
 - [ ] Bill printer test print from Settings on the real counter printer
 
@@ -487,14 +482,14 @@
   - Quantity stepper (`−` / `+`)
   - Free-text kitchen preparation notes (*"no onion", "extra spicy"*)
 
-### 5.3 Client — Cart & KOT Actions
+### 5.3 Client — Cart & Send Actions
 - [x] Interactive cart review with quantity adjustments, item removals, and running total
-- [x] "Send KOT" trigger: submits orders to `/api/v1/orders` or queues them locally if offline
+- [x] "Send order" trigger: submits orders to `/api/v1/orders` or queues them locally if offline
 
 ### 5.4 Client — Open Order Management
 - [x] Live open order review for occupied tables showing current active and cancelled items
-- [x] "Add More Items" workflow (triggers EDITED KOT with ADD items)
-- [x] Item cancellation button with confirmation (triggers EDITED KOT with CANCEL items)
+- [x] "Add More Items" workflow (triggers EDITED ticket with ADD items)
+- [x] Item cancellation button with confirmation (triggers EDITED ticket with CANCEL items)
 - [x] "Request Bill" action: updates table status to `billing` (red) for cashier attention
 
 ### 5.5 Client — Offline Queue & Synchronization
@@ -614,7 +609,7 @@
 
 ### 6.7 Client — Reprint Panel (`/cashier/reprints`)
 - [x] Search by order number or bill number
-- [x] Reprint bill receipt or individual station KOTs
+- [x] Reprint a bill receipt, or resend a ticket to its station screen
 - [x] Dispatches thermal print jobs and logs to audit
 
 ### 6.8 Client — Owner Void Bill
@@ -653,11 +648,7 @@
   - If not exists → create new customer with phone, name, one address (if delivery)
   - Store `customerId` on the order
 
-### 7.3 Server — KOT / Bill Formatter Verification
-- [x] Verify `formatKOT` in print agent handles all 3 order types:
-  - `dine_in`: "Table: First Floor - T7"
-  - `takeaway`: "TAKEAWAY — {name}"
-  - `delivery`: "DELIVERY — {name}", "Ph: {phone}", "Addr: {address}"
+### 7.3 Server — Bill Formatter Verification
 - [x] Verify `formatBill` for delivery includes customer address section between order info and item list
 - [x] Verify takeaway bill shows "TAKEAWAY" and customer name; no address section
 
@@ -682,9 +673,7 @@
 ### ✅ Exit Check — Phase 7
 - [x] Type existing customer's phone → name and address prefill in waiter app
 - [x] New delivery order → customer record created in DB → type same phone again → prefills
-- [x] Delivery KOT prints: "DELIVERY — {name}", phone line, address line
 - [x] Delivery bill prints: customer address block between header and item list
-- [x] Takeaway KOT prints: "TAKEAWAY — {name}"
 - [x] Production builds pass across server, client, and print-agent
 
 ---
@@ -781,15 +770,15 @@
   - [ ] Give owner their login credentials in a sealed envelope
 
 ### ✅ Final Exit Check — Phase 9
-- [ ] Load test passes: 10 concurrent waiters, 0 errors, p95 < 500 ms, 0 duplicate KOTs
-- [ ] **Full dry run** with real printers and real staff phones:
+- [ ] Load test passes: 10 concurrent waiters, 0 errors, p95 < 500 ms, 0 duplicate tickets
+- [ ] **Full dry run** with the station screens, the bill printer and real staff phones:
   - Owner logs in, adds 1 new waiter, sets menu availability
-  - 2 waiters place dine-in orders on different tables → KOTs print on correct stations
-  - 1 waiter places takeaway order offline (airplane mode) → queues → reconnects → KOT prints once
+  - 2 waiters place dine-in orders on different tables → tickets appear on the correct station screens
+  - 1 waiter places takeaway order offline (airplane mode) → queues → reconnects → ticket appears once
   - Cashier generates bill, applies discount, closes with split payment → bill prints
   - Owner runs all 5 reports → totals correct
   - Owner views audit log → all actions logged with user and time
-- [ ] No lost KOT, no duplicate KOT, no missing audit entry in the dry run
+- [ ] No lost ticket, no duplicate ticket, no missing audit entry in the dry run
 - [ ] All 3 guides reviewed and approved by a non-technical staff member
 - [ ] Production deploy: server reachable at HTTPS domain, SSL grade A on SSL Labs
 - [ ] System handed over to owner with changed credentials and printed quick-start guide
@@ -801,20 +790,20 @@
 ```
 copakapana/
 ├── CHECKLIST.md                   ← this file
-├── Restaurant KOT & Billing System — PRD.md
+├── Restaurant POS & Kitchen Display — PRD.md
 │
 ├── server/
 │   ├── src/
 │   │   ├── config/               db.ts · env.ts
 │   │   ├── middleware/           requireAuth.ts · requireRole.ts · errorHandler.ts · asyncHandler.ts · rateLimiter.ts
-│   │   ├── models/               User · Table · MenuCategory · MenuItem · Order · KOT · Bill · Customer · Settings · AuditLog · Counter · PrintJob
-│   │   ├── routes/               auth · users · tables · menu · orders · kots · bills · customers · reports · settings · audit · printJobs
+│   │   ├── models/               User · Table · MenuCategory · MenuItem · Order · Ticket · Bill · Customer · Settings · AuditLog · Counter · PrintJob
+│   │   ├── routes/               auth · users · tables · menu · orders · tickets · bills · customers · reports · settings · audit · printJobs
 │   │   ├── controllers/          (one per route file)
-│   │   ├── services/             kot.service · printJobStore · reports.service · sequence.service
+│   │   ├── services/             ticket.service · printJobStore · reports.service · sequence.service
 │   │   ├── socket/               index.ts · printAgent.ts · events.ts
 │   │   ├── types/                index.ts
 │   │   ├── seeds/                seed.ts
-│   │   └── __tests__/            kot.service · orders · billing · counter
+│   │   └── __tests__/            kds · ticket-migration · billing · bootstrap
 │   ├── .env.example
 │   ├── tsconfig.json
 │   └── package.json

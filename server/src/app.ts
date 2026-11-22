@@ -19,7 +19,7 @@ import billingRouter from './routes/billing';
 import customerRouter from './routes/customers';
 import reportsRouter from './routes/reports';
 import auditRouter from './routes/audit';
-import kotsRouter from './routes/kots';
+import ticketsRouter from './routes/tickets';
 
 const app = express();
 
@@ -60,7 +60,7 @@ app.use('/api/v1/settings', settingsRouter);
 app.use('/api/v1/customers', customerRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/audit', auditRouter);
-app.use('/api/v1', kotsRouter);
+app.use('/api/v1', ticketsRouter);
 app.use('/api/v1', billingRouter);
 app.use('/api/v1', menuRouter);
 

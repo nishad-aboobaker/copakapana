@@ -4,7 +4,7 @@ import { emitToRoom, emitToStaff, isAgentConnected, registerSocketHandlers } fro
 import { PrintStatus } from '../types';
 
 /**
- * Bill printing only (KOTs go to station screens).
+ * Bill printing only (tickets go to station screens).
  * Every job is persisted first, so jobs survive server/agent restarts and an
  * offline agent receives its backlog when it reconnects.
  */

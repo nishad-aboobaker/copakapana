@@ -44,7 +44,7 @@ const connect = (): void => {
     console.error(`❌ Connection error: ${err.message}`);
   });
 
-  // Bill / test-print jobs from the server (KOTs go to kitchen station screens)
+  // Bill and test-print jobs from the server
   socket.on('print:job', (job: PrintJobTask) => {
     console.log(`📄 Received print:job from server:`, job.type);
     printQueue.enqueue(job);
