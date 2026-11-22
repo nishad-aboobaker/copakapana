@@ -51,7 +51,15 @@
 
 ---
 
-## 7. Voiding Paid Bills
+## 7. Accounts: vendors and staff salary (`/accounts`)
+- **Vendors**: add each supplier with their opening balance (OB), then record each day's bill and what you paid. The app keeps the balance and a full statement.
+- **Staff salary**: add anyone on the payroll (separate from app logins) with their monthly salary and any outstanding salary. Salary is earned day by day; record daily payments and see what is still owed or paid in advance.
+- **Report**: any date range, per vendor, per staff member and day by day, with CSV and print.
+- Cashiers and managers can use it too. Only managers and owners can delete older entries. See the accounts guide.
+
+---
+
+## 8. Voiding Paid Bills
 - If an erroneous bill was settled, open the bill in the Cashier Portal as Owner.
 - Click **Void Bill**.
 - Enter the mandatory reason (e.g., "Customer returned food / payment mode mismatch").

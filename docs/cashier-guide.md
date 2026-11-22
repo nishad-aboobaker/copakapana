@@ -32,7 +32,10 @@ Press **Find order or bill** and type the order number.
 - **Resend to screen** for any kitchen ticket.
 - Owners can **Void** a paid bill. A reason is required, and the order reopens for correction.
 
-## 5. Alerts
+## 5. Accounts
+Open **Accounts** in the left menu to record vendor bills and payments and daily salary payments. See the accounts guide. You can delete only the entries you made today; ask a manager to fix older ones.
+
+## 6. Alerts
 - **Station screen offline**: tickets are saved and appear when the screen reconnects. Tell the kitchen if it's urgent and check the tablet's power/WiFi.
 - **Tickets not shown on a kitchen screen**: press **Resend all**, or open **Details** to resend one at a time.
 - **Bill print failed**: check the printer's paper and power, then press **Print again**.

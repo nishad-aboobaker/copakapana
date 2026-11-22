@@ -76,6 +76,12 @@ export const routes: Routes = [
         loadComponent: () => import('./features/customers/customers.component').then((m) => m.CustomersComponent),
       },
       {
+        path: 'accounts',
+        canActivate: [roleGuard('cashier')],
+        title: 'Accounts · Copakapana',
+        loadComponent: () => import('./features/accounts/accounts.component').then((m) => m.AccountsComponent),
+      },
+      {
         path: 'admin',
         pathMatch: 'full',
         canActivate: [roleGuard('owner')],

@@ -21,6 +21,7 @@ import reportsRouter from './routes/reports';
 import auditRouter from './routes/audit';
 import ticketsRouter from './routes/tickets';
 import deliveryRouter from './routes/delivery';
+import accountsRouter from './routes/accounts';
 
 const app = express();
 
@@ -60,6 +61,7 @@ app.use('/api/v1/orders', ordersRouter);
 app.use('/api/v1/settings', settingsRouter);
 app.use('/api/v1/customers', customerRouter);
 app.use('/api/v1/delivery', deliveryRouter);
+app.use('/api/v1/accounts', accountsRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/audit', auditRouter);
 app.use('/api/v1', ticketsRouter);
