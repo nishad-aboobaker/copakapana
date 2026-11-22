@@ -158,7 +158,7 @@ What changes on that PC: **Node.js is installed** (needed to run the agent), the
 ## Step 6 — Final check from anywhere
 
 1. On your phone, **turn off WiFi** (use mobile data) and open the Vercel URL.
-2. Sign in as a cashier, take a test order (or use *Take orders*), then go to **Billing desk → Generate bill → Settle & print**.
+2. Sign in as a cashier, take a test order (or use *Take orders*), then go to **Billing desk → Generate & print bill** (the bill prints), then **Settle & save**.
 3. The bill prints at the restaurant within a few seconds.
 4. On the billing desk, the **Printer** chip at the top is green while the agent is connected.
 

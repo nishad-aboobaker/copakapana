@@ -386,10 +386,11 @@ const TICKET_STATUS: Record<string, string> = { new: 'Sent', preparing: 'Prepari
             } @else if (currentOpenOrder.type === 'dine_in') {
               <button
                 class="btn btn-lg btn-block bill-btn"
-                [disabled]="billRequested"
-                (click)="requestBill()"
+                [disabled]="printingBill"
+                (click)="printBill()"
               >
-                <app-icon name="receipt" /> {{ billRequested ? 'Bill requested' : 'Request bill' }}
+                <app-icon name="receipt" />
+                {{ printingBill ? 'Printing…' : billRequested ? 'Print bill again' : 'Print bill' }}
               </button>
             }
           </main>
@@ -1314,14 +1315,27 @@ export class WaiterMainComponent implements OnInit, OnDestroy {
     });
   }
 
-  requestBill(): void {
-    if (!this.currentOpenOrder || !this.activeTable) return;
-    this.http.post<{ table: TableItem }>(`${environment.apiUrl}/tables/${this.activeTable._id}/request-bill`, {}).subscribe({
+  printingBill = false;
+
+  printBill(): void {
+    const order = this.currentOpenOrder;
+    if (!order || this.printingBill) return;
+    const again = this.billRequested;
+    this.printingBill = true;
+    this.http.post<{ bill: unknown; order: any }>(`${environment.apiUrl}/orders/${order._id}/print-bill`, {}).subscribe({
       next: (res) => {
-        this.activeTable = res.table;
-        this.ui.success('The cashier has been notified', 'Bill requested');
+        this.printingBill = false;
+        if (res.order) this.currentOpenOrder = { ...order, status: res.order.status };
+        if (this.activeTable) this.activeTable = { ...this.activeTable, status: 'billing' };
+        this.ui.success('Collect it from the counter printer', again ? 'Bill printed again' : 'Bill printed');
+        this.fetchTables();
+        this.cdr.markForCheck();
       },
-      error: (err) => this.ui.apiError(err, 'Could not request the bill'),
+      error: (err) => {
+        this.printingBill = false;
+        this.ui.apiError(err, 'Could not print the bill');
+        this.cdr.markForCheck();
+      },
     });
   }
 

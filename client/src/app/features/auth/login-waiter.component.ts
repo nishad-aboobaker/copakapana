@@ -27,7 +27,7 @@ const LAST_WAITER_KEY = 'waiter_last_name';
       [heading]="selected() ? 'Hi, ' + selected()!.name : 'Who is serving?'"
       [subheading]="selected() ? 'Enter your 4-digit PIN' : 'Tap your name to sign in'"
       pitchTitle="Take orders right at the table."
-      pitchText="Send orders to the kitchen screens, see when food is ready and request the bill — all from your phone."
+      pitchText="Send orders to the kitchen screens, see when food is ready and print the bill — all from your phone."
     >
       @if (!selected()) {
         @if (loading()) {

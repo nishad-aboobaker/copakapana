@@ -307,9 +307,9 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
                   <span>Amount</span>
                   <strong class="num">₹{{ orderTotal(selectedOrder) }}</strong>
                 </div>
-                <p class="text-muted text-sm">Generating the bill locks the items and marks the table as billing.</p>
+                <p class="text-muted text-sm">Generating the bill prints it, locks the items and marks the table as billing. Payment is saved later with <strong>Settle &amp; save</strong>.</p>
                 <button class="btn btn-primary btn-xl btn-block" [disabled]="busy" (click)="generateBillForOrder()">
-                  @if (busy) { <span class="spinner"></span> } @else { <app-icon name="receipt" /> } Generate bill
+                  @if (busy) { <span class="spinner"></span> } @else { <app-icon name="receipt" /> } Generate &amp; print bill
                 </button>
                 <button class="btn btn-ghost btn-block cancel-order" [disabled]="busy" (click)="cancelWholeOrder()">
                   <app-icon name="ban" /> Cancel order
@@ -321,12 +321,18 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
                 <strong class="num">₹{{ activeBill.total }}</strong>
               </div>
 
+              @if (selectedOrder.type !== 'delivery') {
+                <button class="btn btn-block print-open" (click)="reprintBillById(activeBill._id)">
+                  <app-icon name="printer" /> Print bill again
+                </button>
+              }
+
               @if (selectedOrder.type === 'delivery') {
                 <div class="delivery-slip">
                   <button class="btn btn-lg btn-block" [disabled]="printingSlip" (click)="printDeliveryBill(activeBill._id)">
-                    @if (printingSlip) { <span class="spinner"></span> } @else { <app-icon name="bike" /> } Print delivery bill
+                    @if (printingSlip) { <span class="spinner"></span> } @else { <app-icon name="bike" /> } Print delivery bill again
                   </button>
-                  <p class="text-muted text-sm">Send it with the rider — it shows the address and the amount to collect. Settle below when the money comes back.</p>
+                  <p class="text-muted text-sm">The delivery bill printed when you generated the bill. Send it with the rider — it shows the address and the amount to collect. Settle below when the money comes back.</p>
                 </div>
                 @if (riderCollection) {
                   <div class="rider-collected">
@@ -402,7 +408,7 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
                 @if (isClosing) {
                   <span class="spinner"></span> Settling…
                 } @else {
-                  <app-icon name="check" /> Settle &amp; print · ₹{{ activeBill.total }}
+                  <app-icon name="check" /> Settle &amp; save · ₹{{ activeBill.total }}
                 }
               </button>
             } @else {
@@ -620,6 +626,7 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
       .upi-note div { display: flex; flex-direction: column; }
       .upi-note strong { color: var(--text-strong); }
       .settle { margin-top: auto; }
+      .print-open { margin-bottom: 12px; }
 
       .disc-preview { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 1rem; border-radius: 10px; background: var(--surface-muted); border: 1px solid var(--border); }
       .disc-preview strong { font-size: var(--fs-lg); color: var(--text-strong); }
@@ -954,6 +961,7 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.busy = false;
         this.activeBill = res.bill;
+        this.ui.success('Bill sent to the printer', `Bill #${res.bill.number}`);
         this.resetPayment();
         this.fetchOpenOrders();
       },
@@ -1045,7 +1053,7 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
           this.activeBill = res.bill;
           this.resetPayment();
           this.showDiscountModal = false;
-          this.ui.success(`Discount applied · new total ₹${res.bill.total}`);
+          this.ui.success(`New total ₹${res.bill.total}. Print the bill again for the customer.`, "Discount applied");
         },
         error: (err) => this.ui.apiError(err, 'Could not apply the discount'),
       });
@@ -1077,7 +1085,7 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
           next: () => {
             this.isClosing = false;
             this.lastClosed = { id: bill._id, number: bill.number, total: bill.total, change };
-            this.ui.success(change > 0 ? `Give back ₹${change} change` : 'Receipt sent to the printer', `Bill #${bill.number} paid`);
+            this.ui.success(change > 0 ? `Give back ₹${change} change` : 'Payment saved', `Bill #${bill.number} settled`);
             this.clearSelection();
             this.fetchOpenOrders();
           },

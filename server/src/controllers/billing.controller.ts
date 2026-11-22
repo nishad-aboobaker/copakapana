@@ -9,7 +9,7 @@ import { Table } from '../models/Table';
 import { PrintService } from '../services/print.service';
 import { emitOrderUpdated, emitTableUpdated } from '../socket';
 import { IBill } from '../models/Bill';
-import { BillStatus, DiscountType, ItemStatus, OrderStatus, PaymentMode, TableStatus } from '../types';
+import { BillStatus, DiscountType, ItemStatus, OrderStatus, PaymentMode, Role, TableStatus } from '../types';
 
 const FLOOR_LABEL: Record<string, string> = { ground: 'Ground Floor', first: 'First Floor' };
 
@@ -59,28 +59,48 @@ const buildBillPrintPayload = async (
   };
 };
 
-export const generateBill = async (req: Request, res: Response): Promise<void> => {
-  const { id: orderId } = req.params;
-  const userId = req.user!.id;
+/** Delivery-bill payload: customer block + amount the rider collects (or PAID). */
+const buildDeliveryPayload = async (bill: IBill, fallbackCashier?: string) => {
+  const paid = bill.status === BillStatus.Paid;
+  const paidSoFar = (bill.payments ?? []).reduce((sum, p) => sum + (p.amount || 0), 0);
+  const amountDue = paid ? 0 : Math.max(0, bill.total - paidSoFar);
+  const payload = {
+    ...(await buildBillPrintPayload(bill, false, fallbackCashier)),
+    deliveryBill: true,
+    amountDue,
+    payments: paid ? bill.payments : [],
+  };
+  return { payload, amountDue };
+};
 
-  const order = await Order.findById(orderId).populate('tableId', 'name number floor');
-  if (!order) {
-    res.status(404).json({ code: 'NOT_FOUND', message: 'Order not found' });
-    return;
-  }
+/** Queues the bill on the counter printer — the delivery layout for delivery orders. */
+const enqueueBillPrint = async (bill: IBill, orderType: string | undefined, printedBy?: string): Promise<void> => {
+  const settings = await Settings.findOne().select('billPrinterIp').lean();
+  const payload =
+    orderType === 'delivery'
+      ? (await buildDeliveryPayload(bill, printedBy)).payload
+      : await buildBillPrintPayload(bill, false, printedBy);
+  await PrintService.enqueue('bill', settings?.billPrinterIp || '192.168.1.100', payload);
+};
 
-  // Check if an open bill already exists for this order
-  let existingBill = await Bill.findOne({ orderId: order._id, status: BillStatus.Open });
-  if (existingBill) {
-    res.json({ bill: existingBill, message: 'Existing open bill retrieved' });
-    return;
+type BillResult = { ok: true; bill: IBill; order: any; created: boolean } | { ok: false; status: number; code: string; message: string };
+
+/** Creates the open bill for an order (or returns the existing open one), marks the order billed. */
+const createBillForOrder = async (orderId: string, userId: string): Promise<BillResult> => {
+  const order = await Order.findById(orderId).catch(() => null);
+  if (!order) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'Order not found' };
+
+  const existingBill = await Bill.findOne({ orderId: order._id, status: BillStatus.Open });
+  if (existingBill) return { ok: true, bill: existingBill, order, created: false };
+
+  if (order.status !== OrderStatus.Open && order.status !== OrderStatus.Billed) {
+    return { ok: false, status: 409, code: 'ORDER_CLOSED', message: 'This order is already closed' };
   }
 
   // Active items only (exclude cancelled items)
   const activeItems = order.items.filter((i) => i.status === ItemStatus.Active);
   if (activeItems.length === 0) {
-    res.status(400).json({ code: 'NO_ACTIVE_ITEMS', message: 'Every item on this order was cancelled — close the order instead of billing it' });
-    return;
+    return { ok: false, status: 400, code: 'NO_ACTIVE_ITEMS', message: 'Every item on this order was cancelled — close the order instead of billing it' };
   }
 
   const itemsSnapshot: IBillItemSnapshot[] = activeItems.map((item) => ({
@@ -119,11 +139,9 @@ export const generateBill = async (req: Request, res: Response): Promise<void> =
     status: BillStatus.Open,
   });
 
-  // Set order status to billed
   order.status = OrderStatus.Billed;
   await order.save();
 
-  // If table, set table status to billing
   if (order.tableId) {
     const table = await Table.findById(order.tableId);
     if (table) {
@@ -143,7 +161,57 @@ export const generateBill = async (req: Request, res: Response): Promise<void> =
 
   emitOrderUpdated(order.waiterId.toString(), order);
 
-  res.status(201).json({ bill, order });
+  return { ok: true, bill, order, created: true };
+};
+
+export const generateBill = async (req: Request, res: Response): Promise<void> => {
+  const result = await createBillForOrder(req.params.id, req.user!.id);
+  if (!result.ok) {
+    res.status(result.status).json({ code: result.code, message: result.message });
+    return;
+  }
+  if (!result.created) {
+    res.json({ bill: result.bill, message: 'Existing open bill retrieved' });
+    return;
+  }
+  // The bill prints as soon as it is generated; settling later only records the payment.
+  await enqueueBillPrint(result.bill, result.order.type, req.user?.name);
+  res.status(201).json({ bill: result.bill, order: result.order });
+};
+
+/**
+ * POST /orders/:id/print-bill — the waiter prints the bill for the table on the counter printer.
+ * Generates the bill if it doesn't exist yet; pressing it again prints another copy.
+ * Payment is still taken and settled at the billing desk.
+ */
+export const printOrderBill = async (req: Request, res: Response): Promise<void> => {
+  const order = await Order.findById(req.params.id).select('waiterId').lean().catch(() => null);
+  if (!order) {
+    res.status(404).json({ code: 'NOT_FOUND', message: 'Order not found' });
+    return;
+  }
+  if (req.user?.role === Role.Waiter && order.waiterId.toString() !== req.user.id) {
+    res.status(403).json({ code: 'FORBIDDEN', message: 'You can only print the bill for your own orders' });
+    return;
+  }
+
+  const result = await createBillForOrder(req.params.id, req.user!.id);
+  if (!result.ok) {
+    res.status(result.status).json({ code: result.code, message: result.message });
+    return;
+  }
+
+  await enqueueBillPrint(result.bill, result.order.type, req.user?.name);
+
+  await AuditLog.create({
+    action: 'bill_printed_by_waiter',
+    userId: req.user?.id,
+    entity: 'Bill',
+    entityId: result.bill._id,
+    after: { number: result.bill.number, total: result.bill.total },
+  });
+
+  res.status(result.created ? 201 : 200).json({ bill: result.bill, order: result.order });
 };
 
 export const applyDiscount = async (req: Request, res: Response): Promise<void> => {
@@ -273,9 +341,7 @@ export const closeBill = async (req: Request, res: Response): Promise<void> => {
     emitOrderUpdated(order.waiterId.toString(), order);
   }
 
-  // Queue bill on the counter printer (persisted; survives agent downtime)
-  const settings = await Settings.findOne().select('billPrinterIp').lean();
-  await PrintService.enqueue('bill', settings?.billPrinterIp || '192.168.1.100', await buildBillPrintPayload(bill));
+  // No print here: the bill was printed when it was generated. "Settle & save" only records payment.
 
   await AuditLog.create({
     action: 'bill_closed',
@@ -369,7 +435,7 @@ export const reprintBill = async (req: Request, res: Response): Promise<void> =>
   await PrintService.enqueue(
     'bill',
     settings?.billPrinterIp || '192.168.1.100',
-    await buildBillPrintPayload(bill, true, req.user?.name),
+    await buildBillPrintPayload(bill, bill.status !== BillStatus.Open, req.user?.name),
   );
 
   await AuditLog.create({
@@ -403,15 +469,7 @@ export const printDeliveryBill = async (req: Request, res: Response): Promise<vo
     return;
   }
 
-  const paid = bill.status === BillStatus.Paid;
-  const paidSoFar = (bill.payments ?? []).reduce((sum, p) => sum + (p.amount || 0), 0);
-  const amountDue = paid ? 0 : Math.max(0, bill.total - paidSoFar);
-  const payload = {
-    ...(await buildBillPrintPayload(bill, false, req.user?.name)),
-    deliveryBill: true,
-    amountDue,
-    payments: paid ? bill.payments : [],
-  };
+  const { payload, amountDue } = await buildDeliveryPayload(bill, req.user?.name);
   const settings = await Settings.findOne().select('billPrinterIp').lean();
   await PrintService.enqueue('bill', settings?.billPrinterIp || '192.168.1.100', payload);
 

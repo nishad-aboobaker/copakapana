@@ -25,7 +25,7 @@
 - **Sent** shows everything on the order with live kitchen status: *Sent → Preparing → Ready*.
 - **Add more**: go back to **Menu**, add dishes and send again. The kitchen sees an **EDIT** ticket with the new items.
 - **Cancel an item**: tap **×** next to it and confirm. The kitchen sees the cancellation. Cancellations are logged.
-- **Request bill**: tap **Request bill**. The table turns red and the cashier is notified.
+- **Print bill**: tap **Print bill**. The bill prints on the counter printer; collect it and give it to the table. The table turns red and the billing desk sees the order as **Billed**. Need another copy? Tap **Print bill again**. Payment is still taken and settled at the billing desk.
 
 ## 5. Takeaway & delivery
 1. Tap **Takeaway** or **Delivery** on the Tables tab.

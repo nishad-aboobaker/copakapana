@@ -5,6 +5,7 @@ import {
   generateBill,
   getBill,
   printDeliveryBill,
+  printOrderBill,
   recordPayments,
   reprintBill,
   voidBill,
@@ -18,6 +19,7 @@ const router = Router();
 
 // Order billing
 router.post('/orders/:id/bill', requireAuth, requireRole(Role.Cashier), asyncHandler(generateBill));
+router.post('/orders/:id/print-bill', requireAuth, requireRole(Role.Waiter), asyncHandler(printOrderBill));
 
 // Bill operations
 router.get('/bills/:id', requireAuth, requireRole(Role.Cashier), asyncHandler(getBill));
