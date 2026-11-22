@@ -127,14 +127,33 @@ export class EscposFormatter {
     }
     out += this.divider('-');
 
+    const deliveryBill = !!bill.deliveryBill;
+    if (deliveryBill) {
+      out += this.ALIGN_CENTER + this.BOLD_ON + this.DOUBLE_ON + 'DELIVERY BILL\n' + this.DOUBLE_OFF + this.BOLD_OFF + this.ALIGN_LEFT;
+      out += this.divider('-');
+    }
+
     // ── Bill details ──────────────────────────────────────────
     out += this.field('Trans#', String(bill.number ?? ''));
+    if (deliveryBill && bill.orderNumber) out += this.field('Order#', String(bill.orderNumber));
     out += this.field('Cashier', String(bill.cashierName || 'CASHIER').toUpperCase());
     out += this.field('Date', this.istStamp(bill.date));
-    out += this.field('Table No', bill.orderType === 'dine_in' && bill.tableName ? String(bill.tableName) : 'None');
+    if (!deliveryBill) {
+      out += this.field('Table No', bill.orderType === 'dine_in' && bill.tableName ? String(bill.tableName) : 'None');
+    }
 
     const customer = bill.customer || {};
-    if (bill.orderType === 'takeaway') {
+    if (deliveryBill) {
+      // Large, easy-to-read block for the rider
+      out += this.divider('-');
+      out += this.BOLD_ON + 'DELIVER TO\n' + this.BOLD_OFF;
+      out += this.BOLD_ON + this.DOUBLE_HEIGHT;
+      if (customer.name) out += this.wrap(String(customer.name).toUpperCase(), this.LINE_WIDTH).join('\n') + '\n';
+      if (customer.phone) out += `Ph: ${customer.phone}\n`;
+      out += this.DOUBLE_OFF;
+      if (customer.address) out += this.wrap(customer.address, this.LINE_WIDTH).join('\n') + '\n';
+      out += this.BOLD_OFF;
+    } else if (bill.orderType === 'takeaway') {
       out += this.field('Order', `TAKEAWAY${customer.name ? ' - ' + customer.name : ''}`);
     } else if (bill.orderType === 'delivery') {
       out += this.field('Order', 'DELIVERY');
@@ -176,6 +195,20 @@ export class EscposFormatter {
       out += this.field('Paid by', modes);
       const cash = payments.find((p) => p.mode === 'cash' && p.change);
       if (cash) out += this.field('Tendered', this.amount(cash.tendered)) + this.field('Change', this.amount(cash.change));
+    }
+
+    if (deliveryBill) {
+      out += this.divider('=');
+      out += this.ALIGN_CENTER + this.BOLD_ON + this.DOUBLE_ON;
+      if (Number(bill.amountDue) > 0) {
+        out += 'COLLECT\n' + `Rs ${this.amount(bill.amountDue)}\n`;
+      } else {
+        out += 'PAID\n';
+      }
+      out += this.DOUBLE_OFF + this.BOLD_OFF;
+      if (Number(bill.amountDue) > 0) out += 'Cash / UPI on delivery\n';
+      else out += 'Nothing to collect\n';
+      out += this.ALIGN_LEFT;
     }
     out += this.divider('-');
 

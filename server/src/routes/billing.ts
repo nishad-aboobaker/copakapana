@@ -4,6 +4,7 @@ import {
   closeBill,
   generateBill,
   getBill,
+  printDeliveryBill,
   recordPayments,
   reprintBill,
   voidBill,
@@ -25,5 +26,6 @@ router.post('/bills/:id/payments', requireAuth, requireRole(Role.Cashier), async
 router.post('/bills/:id/close', requireAuth, requireRole(Role.Cashier), asyncHandler(closeBill));
 router.post('/bills/:id/void', requireAuth, requireRole(Role.Owner), asyncHandler(voidBill));
 router.post('/bills/:id/reprint', requireAuth, requireRole(Role.Cashier), asyncHandler(reprintBill));
+router.post('/bills/:id/delivery-bill', requireAuth, requireRole(Role.Cashier), asyncHandler(printDeliveryBill));
 
 export default router;

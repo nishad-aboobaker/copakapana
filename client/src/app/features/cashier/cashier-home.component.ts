@@ -312,6 +312,15 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
                 <strong class="num">₹{{ activeBill.total }}</strong>
               </div>
 
+              @if (selectedOrder.type === 'delivery') {
+                <div class="delivery-slip">
+                  <button class="btn btn-lg btn-block" [disabled]="printingSlip" (click)="printDeliveryBill(activeBill._id)">
+                    @if (printingSlip) { <span class="spinner"></span> } @else { <app-icon name="bike" /> } Print delivery bill
+                  </button>
+                  <p class="text-muted text-sm">Send it with the rider — it shows the address and the amount to collect. Settle below when the money comes back.</p>
+                </div>
+              }
+
               <div class="segmented full">
                 <button [class.active]="payMode === 'cash'" (click)="setPayMode('cash')"><app-icon name="cash" /> Cash</button>
                 <button [class.active]="payMode === 'upi'" (click)="setPayMode('upi')"><app-icon name="qr" /> UPI</button>
@@ -385,6 +394,9 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
                   {{ activeBill.status === 'paid' ? 'Paid' : 'Void' }}
                 </span>
                 <button class="btn btn-block" (click)="reprintBillById(activeBill._id)"><app-icon name="printer" /> Reprint bill</button>
+                @if (selectedOrder.type === 'delivery' && activeBill.status === 'paid') {
+                  <button class="btn btn-block" [disabled]="printingSlip" (click)="printDeliveryBill(activeBill._id)"><app-icon name="bike" /> Print delivery bill</button>
+                }
               </div>
             }
           </section>
@@ -570,6 +582,9 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
       .cancel-order { color: var(--danger); }
       .cancel-order:hover:not(:disabled) { background: var(--danger-soft); }
       .pay-due { display: flex; flex-direction: column; gap: 0.1rem; }
+      .delivery-slip { display: flex; flex-direction: column; gap: 0.4rem; padding: 0.75rem; border: 1px dashed var(--info); border-radius: var(--radius); background: var(--info-soft); }
+      .delivery-slip .btn { background: var(--surface); border-color: var(--info); color: var(--info); font-weight: 700; }
+      .delivery-slip p { margin: 0; }
       .pay-due span { font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
       .pay-due strong { font-size: 2.4rem; font-weight: 800; color: var(--text-strong); letter-spacing: -0.03em; line-height: 1.1; }
       .segmented.full { display: flex; }
@@ -636,6 +651,7 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
   ordersLoading = true;
   selectedOrder: OrderSummary | null = null;
   activeBill: BillData | null = null;
+  printingSlip = false;
   selectedType: TypeFilter = 'all';
   query = '';
   busy = false;
@@ -1016,6 +1032,22 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.isClosing = false;
         this.ui.apiError(err, 'Could not record the payment');
+      },
+    });
+  }
+
+  /** Slip for the delivery rider: address + amount to collect (or PAID). */
+  printDeliveryBill(billId: string): void {
+    if (this.printingSlip) return;
+    this.printingSlip = true;
+    this.http.post<{ amountDue: number }>(`${environment.apiUrl}/bills/${billId}/delivery-bill`, {}).subscribe({
+      next: (res) => {
+        this.printingSlip = false;
+        this.ui.success(res.amountDue > 0 ? `Rider collects ₹${res.amountDue}` : 'Marked as paid on the slip', 'Delivery bill printing');
+      },
+      error: (err) => {
+        this.printingSlip = false;
+        this.ui.apiError(err, 'Could not print the delivery bill');
       },
     });
   }

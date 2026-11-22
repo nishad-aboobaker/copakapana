@@ -382,6 +382,50 @@ export const reprintBill = async (req: Request, res: Response): Promise<void> =>
   res.json({ message: 'Bill reprint dispatched to cashier counter printer' });
 };
 
+/**
+ * POST /bills/:id/delivery-bill — slip that goes out with the delivery rider: customer name,
+ * phone and address in large print, the items, and the amount the rider must collect
+ * (or PAID when the customer has already paid). Works for open or paid delivery bills.
+ */
+export const printDeliveryBill = async (req: Request, res: Response): Promise<void> => {
+  const bill = await Bill.findById(req.params.id);
+  if (!bill) {
+    res.status(404).json({ code: 'NOT_FOUND', message: 'Bill not found' });
+    return;
+  }
+  const order = await Order.findById(bill.orderId).select('type').lean();
+  if (order?.type !== 'delivery') {
+    res.status(400).json({ code: 'NOT_DELIVERY', message: 'Delivery bills are only for delivery orders' });
+    return;
+  }
+  if (bill.status === BillStatus.Void) {
+    res.status(409).json({ code: 'BILL_VOID', message: 'This bill was voided' });
+    return;
+  }
+
+  const paid = bill.status === BillStatus.Paid;
+  const paidSoFar = (bill.payments ?? []).reduce((sum, p) => sum + (p.amount || 0), 0);
+  const amountDue = paid ? 0 : Math.max(0, bill.total - paidSoFar);
+  const payload = {
+    ...(await buildBillPrintPayload(bill, false, req.user?.name)),
+    deliveryBill: true,
+    amountDue,
+    payments: paid ? bill.payments : [],
+  };
+  const settings = await Settings.findOne().select('billPrinterIp').lean();
+  await PrintService.enqueue('bill', settings?.billPrinterIp || '192.168.1.100', payload);
+
+  await AuditLog.create({
+    action: 'delivery_bill_printed',
+    userId: req.user?.id,
+    entity: 'Bill',
+    entityId: bill._id,
+    after: { amountDue },
+  });
+
+  res.json({ message: 'Delivery bill sent to the printer', amountDue });
+};
+
 export const getBill = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const bill = await Bill.findById(id).populate('orderId');
