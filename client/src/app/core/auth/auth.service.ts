@@ -5,7 +5,7 @@ import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export type Station = 'fried_chicken' | 'juice' | 'main';
-export type UserRole = 'waiter' | 'cashier' | 'manager' | 'owner' | 'kitchen';
+export type UserRole = 'waiter' | 'cashier' | 'manager' | 'owner' | 'kitchen' | 'delivery';
 
 export interface UserProfile {
   id: string;
@@ -24,6 +24,7 @@ export const STATION_LABELS: Record<Station, string> = {
 /** Where each role lands after login (and where guards send them back to). */
 export const HOME_BY_ROLE: Record<UserRole, string> = {
   kitchen: '/kds',
+  delivery: '/delivery',
   waiter: '/waiter/tables',
   cashier: '/cashier/home',
   manager: '/cashier/home',
@@ -32,7 +33,7 @@ export const HOME_BY_ROLE: Record<UserRole, string> = {
 
 /** Which login page a role (or a protected URL) belongs to. */
 export const loginUrlForRole = (role?: UserRole | null): string =>
-  role === 'kitchen' ? '/login/kitchen' : role && role !== 'waiter' ? '/login/pc' : '/login/waiter';
+  role === 'kitchen' ? '/login/kitchen' : role && role !== 'waiter' && role !== 'delivery' ? '/login/pc' : '/login/waiter';
 
 export const loginUrlForPath = (url: string): string =>
   url.startsWith('/kds') ? '/login/kitchen' : /^\/(admin|cashier)/.test(url) ? '/login/pc' : '/login/waiter';

@@ -187,4 +187,7 @@ export const emitMenuUpdated = (item: unknown): void => {
 export const emitOrderUpdated = (waiterId: string, order: unknown): void => {
   emitToStaff('order:updated', order);
   emitToRoom(`user:${waiterId}`, 'order:updated', order);
+  // Delivery staff only need a "something changed" nudge; their app reloads its list
+  const o = order as { _id?: unknown; type?: string } | null;
+  if (o?.type === 'delivery') emitToRoom('role:delivery', 'delivery:changed', { orderId: String(o._id ?? '') });
 };

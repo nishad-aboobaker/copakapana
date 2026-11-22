@@ -11,7 +11,7 @@ interface NavItem {
   label: string;
   icon: string;
   link: string;
-  minRole: Exclude<UserRole, 'kitchen'>;
+  minRole: Exclude<UserRole, 'kitchen' | 'delivery'>;
   exact?: boolean;
 }
 

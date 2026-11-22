@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { guestGuard, kitchenGuard, landingRedirect, roleGuard } from './core/auth/role.guard';
+import { deliveryGuard, guestGuard, kitchenGuard, landingRedirect, roleGuard } from './core/auth/role.guard';
 
 /**
  * Every route is guarded:
@@ -48,6 +48,13 @@ export const routes: Routes = [
     canActivate: [kitchenGuard],
     title: 'Station screen · Copakapana',
     loadComponent: () => import('./features/kds/kds-screen.component').then((m) => m.KdsScreenComponent),
+  },
+  {
+    // Delivery staff app — what to deliver, where, and what to collect
+    path: 'delivery',
+    canActivate: [deliveryGuard],
+    title: 'Deliveries · Copakapana',
+    loadComponent: () => import('./features/delivery/delivery-app.component').then((m) => m.DeliveryAppComponent),
   },
 
   // ─── Back office (inside the shell) ─────────────────────────────────────

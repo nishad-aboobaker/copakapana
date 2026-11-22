@@ -8,7 +8,7 @@ import { SocketService } from '../../core/socket/socket.service';
 import { IconComponent } from '../../shared/icon.component';
 import { UiService } from '../../shared/ui.service';
 
-type Role = 'waiter' | 'cashier' | 'manager' | 'owner' | 'kitchen';
+type Role = 'waiter' | 'cashier' | 'manager' | 'owner' | 'kitchen' | 'delivery';
 type Station = 'fried_chicken' | 'juice' | 'main';
 
 interface StaffUser {
@@ -25,6 +25,7 @@ const ROLE_META: Record<Role, { label: string; icon: string; desc: string; cls: 
   cashier: { label: 'Cashier', icon: 'receipt', desc: 'Bills, discounts and payments · password', cls: 'badge-info' },
   manager: { label: 'Manager', icon: 'chart', desc: 'Cashier + reports and menu availability · password', cls: 'badge-warning' },
   owner: { label: 'Owner', icon: 'shield', desc: 'Full access', cls: 'badge-dark' },
+  delivery: { label: 'Delivery', icon: 'bike', desc: 'Delivery app on their phone · signs in with a PIN', cls: 'badge-info' },
   kitchen: { label: 'Station screen', icon: 'monitor', desc: 'Kitchen display for one station · PIN', cls: 'badge-success' },
 };
 
@@ -204,7 +205,7 @@ const STATIONS: { key: Station; label: string; icon: string }[] = [
               <div class="field">
                 <label for="new-name">{{ newRole === 'kitchen' ? 'Screen name' : 'Name' }}</label>
                 <input id="new-name" name="name" class="input" [(ngModel)]="newName" [placeholder]="newRole === 'kitchen' ? 'e.g. fryer-screen' : 'e.g. anu'" autocomplete="off" required />
-                <span class="hint">{{ newRole === 'kitchen' || newRole === 'waiter' ? 'Shown on the sign-in screen.' : 'Used as the username to sign in.' }}</span>
+                <span class="hint">{{ newRole === 'kitchen' || newRole === 'waiter' || newRole === 'delivery' ? 'Shown on the sign-in screen.' : 'Used as the username to sign in.' }}</span>
               </div>
 
               @if (usesPin(newRole)) {
@@ -315,10 +316,11 @@ export class StaffAdminComponent implements OnInit, OnDestroy {
 
   readonly roleMeta = ROLE_META;
   readonly stations = STATIONS;
-  readonly creatableRoles: Role[] = ['waiter', 'cashier', 'manager', 'kitchen'];
+  readonly creatableRoles: Role[] = ['waiter', 'delivery', 'cashier', 'manager', 'kitchen'];
   readonly roleFilters: { key: 'all' | Role; label: string }[] = [
     { key: 'all', label: 'Everyone' },
     { key: 'waiter', label: 'Waiters' },
+    { key: 'delivery', label: 'Delivery' },
     { key: 'cashier', label: 'Cashiers' },
     { key: 'manager', label: 'Managers' },
     { key: 'owner', label: 'Owners' },
@@ -365,7 +367,7 @@ export class StaffAdminComponent implements OnInit, OnDestroy {
   }
 
   usesPin(role: Role): boolean {
-    return role === 'waiter' || role === 'kitchen';
+    return role === 'waiter' || role === 'kitchen' || role === 'delivery';
   }
 
   screenFor(station: Station): StaffUser | undefined {

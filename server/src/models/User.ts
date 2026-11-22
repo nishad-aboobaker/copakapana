@@ -2,7 +2,7 @@ import mongoose, { Document, Model, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { Role, Station } from '../types';
 
-const PIN_ROLES: Role[] = [Role.Waiter, Role.Kitchen];
+const PIN_ROLES: Role[] = [Role.Waiter, Role.Kitchen, Role.Delivery];
 export const usesPin = (role: Role): boolean => PIN_ROLES.includes(role);
 
 export interface IUser extends Document {

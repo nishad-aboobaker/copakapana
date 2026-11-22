@@ -18,6 +18,15 @@ interface OrderSummary {
   customerSnapshot?: { name: string; phone: string; address?: string };
   items: any[];
   createdAt: string;
+  /** Delivery orders: rider progress and what the rider collected */
+  delivery?: {
+    status: 'waiting' | 'out' | 'delivered';
+    riderName?: string;
+    outAt?: string;
+    deliveredAt?: string;
+    collectedMode?: 'cash' | 'upi' | 'prepaid';
+    collectedAmount?: number;
+  };
 }
 
 interface BillData {
@@ -319,6 +328,14 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
                   </button>
                   <p class="text-muted text-sm">Send it with the rider — it shows the address and the amount to collect. Settle below when the money comes back.</p>
                 </div>
+                @if (riderCollection) {
+                  <div class="rider-collected">
+                    <app-icon name="check-circle" />
+                    <div><strong>Delivered — rider collected {{ riderCollection }}</strong><span>Check the money, then settle.</span></div>
+                  </div>
+                } @else if (selectedOrder.delivery?.status === 'out') {
+                  <div class="rider-collected out"><app-icon name="bike" /><div><strong>On the way</strong><span>{{ selectedOrder.delivery?.riderName }} picked it up.</span></div></div>
+                }
               }
 
               <div class="segmented full">
@@ -585,6 +602,11 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
       .delivery-slip { display: flex; flex-direction: column; gap: 0.4rem; padding: 0.75rem; border: 1px dashed var(--info); border-radius: var(--radius); background: var(--info-soft); }
       .delivery-slip .btn { background: var(--surface); border-color: var(--info); color: var(--info); font-weight: 700; }
       .delivery-slip p { margin: 0; }
+      .rider-collected { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.7rem 0.8rem; border-radius: var(--radius); background: var(--success-soft); color: var(--success); }
+      .rider-collected.out { background: var(--info-soft); color: var(--info); }
+      .rider-collected div { display: flex; flex-direction: column; gap: 0.1rem; }
+      .rider-collected strong { color: var(--text-strong); font-size: var(--fs-sm); }
+      .rider-collected span { font-size: var(--fs-xs); color: var(--text-muted); }
       .pay-due span { font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
       .pay-due strong { font-size: 2.4rem; font-weight: 800; color: var(--text-strong); letter-spacing: -0.03em; line-height: 1.1; }
       .segmented.full { display: flex; }
@@ -748,6 +770,7 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
 
   /** Bill asked / billed first, then oldest. */
   private priority(o: OrderSummary): number {
+    if (o.delivery?.status === 'delivered') return 0; // rider is back with the money
     if (o.status === 'billed') return 0;
     if (o.tableId?.status === 'billing') return 1;
     return 2;
@@ -759,6 +782,8 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
 
   statusOf(o: OrderSummary): { label: string; cls: string } | null {
     if (o.status === 'open' && !this.hasBillableItems(o)) return { label: 'All cancelled', cls: 'badge-danger' };
+    if (o.delivery?.status === 'delivered') return { label: 'Delivered', cls: 'badge-success' };
+    if (o.delivery?.status === 'out') return { label: 'On the way', cls: 'badge-info' };
     if (o.status === 'billed') return { label: 'Billed', cls: 'badge-info' };
     if (o.tableId?.status === 'billing') return { label: 'Bill asked', cls: 'badge-warning' };
     return null;
@@ -821,7 +846,10 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
         // Keep the selected order's data fresh (or clear it if it was closed elsewhere)
         if (this.selectedOrder) {
           const fresh = this.openOrders.find((o) => o._id === this.selectedOrder!._id);
-          if (fresh) this.selectedOrder = fresh;
+          if (fresh) {
+            this.selectedOrder = fresh;
+            this.applyRiderCollection();
+          }
         }
       },
       error: () => (this.ordersLoading = false),
@@ -943,6 +971,36 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
     this.cashTendered = total;
     this.upiAmount = 0;
     this.cashChange = 0;
+    this.appliedCollection = '';
+    this.applyRiderCollection();
+  }
+
+  /** What the delivery rider recorded, if anything: "₹290 cash · Faisal · 3:10 pm". */
+  get riderCollection(): string {
+    const d = this.selectedOrder?.delivery;
+    if (d?.status !== 'delivered' || !d.collectedMode || d.collectedMode === 'prepaid') return '';
+    const at = d.deliveredAt
+      ? new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit' }).format(new Date(d.deliveredAt))
+      : '';
+    return `₹${d.collectedAmount ?? 0} ${d.collectedMode === 'upi' ? 'by UPI' : 'cash'}${d.riderName ? ' · ' + d.riderName : ''}${at ? ' · ' + at : ''}`;
+  }
+
+  private appliedCollection = '';
+
+  /** Pre-fill the payment with what the rider collected (once per recorded collection). */
+  private applyRiderCollection(): void {
+    const d = this.selectedOrder?.delivery;
+    if (!this.activeBill || this.activeBill.status !== 'open' || d?.status !== 'delivered' || !d.collectedMode) return;
+    const key = `${this.selectedOrder!._id}:${d.collectedMode}:${d.collectedAmount}`;
+    if (key === this.appliedCollection || d.collectedMode === 'prepaid') return;
+    this.appliedCollection = key;
+    if (d.collectedMode === 'upi') {
+      this.payMode = 'upi';
+    } else {
+      this.payMode = 'cash';
+      this.cashTendered = d.collectedAmount ?? this.activeBill.total;
+      this.calculateChange();
+    }
   }
 
   setPayMode(mode: PayMode): void {

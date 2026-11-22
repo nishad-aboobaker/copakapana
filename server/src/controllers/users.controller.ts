@@ -8,9 +8,9 @@ export const listUsers = async (req: Request, res: Response): Promise<void> => {
   const filter: Record<string, unknown> = {};
   if (role) filter.role = role;
 
-  // Unauthenticated requests may only list active waiters or station screens (login pickers)
-  if (!req.user || req.user.role === Role.Kitchen) {
-    if (role === Role.Waiter || role === Role.Kitchen) {
+  // Unauthenticated requests may only list active waiters, delivery staff or station screens (login pickers)
+  if (!req.user || req.user.role === Role.Kitchen || req.user.role === Role.Delivery) {
+    if (role === Role.Waiter || role === Role.Kitchen || role === Role.Delivery) {
       const accounts = await User.find({ role, active: true })
         .select('_id name station')
         .sort({ name: 1 });

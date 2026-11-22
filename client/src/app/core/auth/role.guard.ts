@@ -17,6 +17,7 @@ import { AuthService, UserRole, loginUrlForPath } from './auth.service';
 
 const RoleLevel: Record<UserRole, number> = {
   kitchen: -1, // device account: never allowed on staff pages
+  delivery: -1, // delivery app only
   waiter: 0,
   cashier: 1,
   manager: 2,
@@ -30,7 +31,7 @@ export const guestGuard: CanActivateFn = () => {
 };
 
 /** Staff pages: signed in, and at least `minRole`. Station screens are always refused. */
-export const roleGuard = (minRole: Exclude<UserRole, 'kitchen'>): CanActivateFn => {
+export const roleGuard = (minRole: Exclude<UserRole, 'kitchen' | 'delivery'>): CanActivateFn => {
   return (_route, state) => {
     const auth = inject(AuthService);
     const router = inject(Router);
@@ -44,7 +45,7 @@ export const roleGuard = (minRole: Exclude<UserRole, 'kitchen'>): CanActivateFn 
     }
 
     const role = auth.currentUser!.role;
-    if (role !== 'kitchen' && RoleLevel[role] >= RoleLevel[minRole]) return true;
+    if (RoleLevel[role] >= 0 && RoleLevel[role] >= RoleLevel[minRole]) return true;
     return router.parseUrl(auth.homeUrl);
   };
 };
@@ -59,6 +60,18 @@ export const kitchenGuard: CanActivateFn = () => {
   if (!auth.isLoggedIn) return router.parseUrl('/login/kitchen');
   const user = auth.currentUser!;
   if (user.role === 'kitchen' && user.station) return true;
+  return router.parseUrl(auth.homeUrl);
+};
+
+/** Delivery app: delivery staff accounts only. */
+export const deliveryGuard: CanActivateFn = (_route, state) => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  if (!auth.isLoggedIn) {
+    if (auth.currentUser) auth.logout({ redirect: false });
+    return router.createUrlTree(['/login/waiter'], { queryParams: { returnUrl: state.url } });
+  }
+  if (auth.currentUser!.role === 'delivery') return true;
   return router.parseUrl(auth.homeUrl);
 };
 

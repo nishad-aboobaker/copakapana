@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { catchError, forkJoin, of } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { IconComponent } from '../../shared/icon.component';
 import { environment } from '../../../environments/environment';
@@ -10,6 +11,8 @@ import { PinPadComponent } from './pin-pad.component';
 interface WaiterOption {
   id: string;
   name: string;
+  /** Delivery staff sign in here too, with a PIN, and land in the delivery app. */
+  delivery?: boolean;
 }
 
 const LAST_WAITER_KEY = 'waiter_last_name';
@@ -58,6 +61,7 @@ const LAST_WAITER_KEY = 'waiter_last_name';
               <button type="button" class="person" [class.last]="w.name === lastName" (click)="choose(w)">
                 <span class="avatar" [style.background]="color(w.name)">{{ initials(w.name) }}</span>
                 <span class="name truncate">{{ w.name }}</span>
+                @if (w.delivery) { <span class="role-tag"><app-icon name="bike" [size]="12" /> Delivery</span> }
               </button>
             }
           </div>
@@ -97,6 +101,7 @@ const LAST_WAITER_KEY = 'waiter_last_name';
       .avatar { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 0.95rem; }
       .name { font-size: var(--fs-sm); font-weight: 600; color: var(--text-strong); max-width: 100%; text-transform: capitalize; }
       .search { margin-bottom: 0.75rem; }
+      .role-tag { display: inline-flex; align-items: center; gap: 0.2rem; margin-top: -0.3rem; font-size: 0.7rem; font-weight: 700; color: var(--info); }
       .error-line { min-height: 1.4em; text-align: center; color: var(--danger); font-size: var(--fs-sm); font-weight: 600; margin: 0.75rem 0 0.25rem; }
       a { display: inline-flex; align-items: center; gap: 0.35rem; }
       @media (max-width: 360px) { .people { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -132,9 +137,15 @@ export class LoginWaiterComponent implements OnInit {
   load(): void {
     this.loading.set(true);
     this.loadError.set(false);
-    this.http.get<{ users: any[] }>(`${environment.apiUrl}/users?role=waiter`).subscribe({
-      next: (res) => {
-        this.waiters.set((res.users || []).map((u) => ({ id: u._id, name: u.name })));
+    forkJoin({
+      waiters: this.http.get<{ users: any[] }>(`${environment.apiUrl}/users?role=waiter`),
+      riders: this.http.get<{ users: any[] }>(`${environment.apiUrl}/users?role=delivery`).pipe(catchError(() => of({ users: [] }))),
+    }).subscribe({
+      next: ({ waiters, riders }) => {
+        this.waiters.set([
+          ...(waiters.users || []).map((u) => ({ id: u._id, name: u.name })),
+          ...(riders.users || []).map((u) => ({ id: u._id, name: u.name, delivery: true })),
+        ]);
         this.loading.set(false);
       },
       error: () => {

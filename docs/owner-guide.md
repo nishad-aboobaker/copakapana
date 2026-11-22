@@ -9,6 +9,7 @@
 
 ## 2. Staff Management (`/admin/staff`)
 - **Add Staff**: Create new waiters (with numeric 4-6 digit PIN) or cashiers/managers (with username and password).
+- **Delivery staff**: Add them with role **Delivery** and a PIN. They sign in from the same phone sign-in page as waiters and only see the delivery app (see the delivery guide).
 - **Reset PIN**: Reset forgotten waiter PINs directly without knowing the previous PIN.
 - **Deactivate**: Instantly revoke staff login access if an employee leaves.
 - **Kitchen station screens**: Add one account per station with role **Kitchen station screen**, pick its station (Fried Chicken, Juice Counter, Main Kitchen) and set a PIN. On the station's tablet/monitor open `/login/kitchen`, tap the station and enter the PIN. The screen stays signed in; re-enter the PIN if it's ever signed out (at least weekly).

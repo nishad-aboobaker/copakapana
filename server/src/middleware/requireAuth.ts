@@ -10,13 +10,14 @@ export interface TokenPayload {
   station?: Station;
 }
 
-type AuthMode = 'staff' | 'kitchen' | 'any';
+type AuthMode = 'staff' | 'kitchen' | 'delivery' | 'any';
 
 /**
  * Verifies the bearer token and loads the user.
- *  - 'staff'   : waiter / cashier / manager / owner. Station screens are rejected.
- *  - 'kitchen' : station screen (KDS) accounts only.
- *  - 'any'     : either (auth/me, logout, settings read).
+ *  - 'staff'    : waiter / cashier / manager / owner. Station screens and delivery staff are rejected.
+ *  - 'kitchen'  : station screen (KDS) accounts only.
+ *  - 'delivery' : delivery staff only.
+ *  - 'any'      : any account (auth/me, logout, settings read).
  */
 const authenticate = (mode: AuthMode) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -43,8 +44,16 @@ const authenticate = (mode: AuthMode) => {
     }
 
     const isKitchen = user.role === Role.Kitchen;
-    if (mode === 'staff' && isKitchen) {
-      res.status(403).json({ code: 'FORBIDDEN', message: 'Station screens cannot access this resource' });
+    const isDelivery = user.role === Role.Delivery;
+    if (mode === 'staff' && (isKitchen || isDelivery)) {
+      res.status(403).json({
+        code: 'FORBIDDEN',
+        message: isKitchen ? 'Station screens cannot access this resource' : 'Delivery accounts can only use the delivery app',
+      });
+      return;
+    }
+    if (mode === 'delivery' && !isDelivery) {
+      res.status(403).json({ code: 'FORBIDDEN', message: 'Only delivery staff accounts can access this resource' });
       return;
     }
     if (mode === 'kitchen' && !isKitchen) {
@@ -69,7 +78,10 @@ export const requireAuth = authenticate('staff');
 /** Station screen (kitchen) accounts only. */
 export const requireKitchen = authenticate('kitchen');
 
-/** Any authenticated account, including station screens. */
+/** Delivery staff accounts only. */
+export const requireDelivery = authenticate('delivery');
+
+/** Any authenticated account, including station screens and delivery staff. */
 export const requireAnyAuth = authenticate('any');
 
 export const optionalAuth = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {

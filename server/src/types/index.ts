@@ -9,11 +9,15 @@ export enum Role {
   // Station screen (KDS) device account — bound to one kitchen station.
   // Sits below every staff role and is rejected by all staff endpoints.
   Kitchen = 'kitchen',
+  // Delivery staff — signs in with a PIN and only sees the delivery app.
+  // Like station screens, rejected by every staff endpoint.
+  Delivery = 'delivery',
 }
 
 // Role hierarchy — higher number = more permissions
 export const RoleLevel: Record<Role, number> = {
   [Role.Kitchen]: -1,
+  [Role.Delivery]: -1,
   [Role.Waiter]: 0,
   [Role.Cashier]: 1,
   [Role.Manager]: 2,
@@ -102,6 +106,29 @@ export interface OrderItemShape {
   /** Served from the counter (e.g. soft drinks) — billed but never sent to a kitchen screen. */
   skipKitchen?: boolean;
   status: ItemStatus;
+}
+
+// ─── Delivery ────────────────────────────────────────────────────────────────
+export enum DeliveryStatus {
+  Waiting = 'waiting', // order taken, not picked up yet
+  Out = 'out', // rider is on the way
+  Delivered = 'delivered',
+}
+
+export enum CollectedMode {
+  Cash = 'cash',
+  UPI = 'upi',
+  Prepaid = 'prepaid', // bill already settled at the counter
+}
+
+export interface DeliveryInfo {
+  status: DeliveryStatus;
+  riderId?: string;
+  riderName?: string;
+  outAt?: Date;
+  deliveredAt?: Date;
+  collectedMode?: CollectedMode;
+  collectedAmount?: number;
 }
 
 export interface CustomerSnapshot {

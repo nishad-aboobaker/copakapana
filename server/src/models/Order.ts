@@ -1,5 +1,15 @@
 import mongoose, { Document, Schema } from 'mongoose';
-import { CustomerSnapshot, ItemStatus, OrderItemShape, OrderStatus, OrderType, Station } from '../types';
+import {
+  CollectedMode,
+  CustomerSnapshot,
+  DeliveryInfo,
+  DeliveryStatus,
+  ItemStatus,
+  OrderItemShape,
+  OrderStatus,
+  OrderType,
+  Station,
+} from '../types';
 
 export interface IOrderItemDocument extends OrderItemShape {
   _id: mongoose.Types.ObjectId;
@@ -17,6 +27,8 @@ export interface IOrder extends Document {
   customerSnapshot?: CustomerSnapshot;
   status: OrderStatus;
   items: IOrderItemDocument[];
+  /** Delivery orders only: rider progress and what the rider collected. */
+  delivery?: DeliveryInfo;
   clientRequestId?: string;
   appliedRequestIds: string[]; // add-items requests already applied (idempotency)
   createdAt: Date;
@@ -105,6 +117,21 @@ const orderSchema = new Schema<IOrder>(
       index: true,
     },
     items: [orderItemSchema],
+    delivery: {
+      type: new Schema(
+        {
+          status: { type: String, enum: Object.values(DeliveryStatus), default: DeliveryStatus.Waiting },
+          riderId: String,
+          riderName: String,
+          outAt: Date,
+          deliveredAt: Date,
+          collectedMode: { type: String, enum: Object.values(CollectedMode) },
+          collectedAmount: Number,
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
     clientRequestId: {
       type: String,
     },
