@@ -9,6 +9,12 @@ export class EscposFormatter {
   private static readonly GS = '\x1D';
 
   public static readonly INIT = `${this.ESC}@`;
+  /**
+   * Line spacing in printer dots (ESC 3 n). The printer's default is about 30;
+   * a little more makes bills easier to read. Raise or lower this one number to adjust.
+   */
+  public static readonly LINE_SPACING_DOTS = 38;
+  public static readonly LINE_SPACING = `${this.ESC}3${String.fromCharCode(this.LINE_SPACING_DOTS)}`;
   public static readonly BOLD_ON = `${this.ESC}E\x01`;
   public static readonly BOLD_OFF = `${this.ESC}E\x00`;
   public static readonly DOUBLE_ON = `${this.GS}!\x11`; // Double height + width
@@ -102,7 +108,7 @@ export class EscposFormatter {
    *   Net Total · footer
    */
   public static formatBill(bill: any): Buffer {
-    let out = this.INIT;
+    let out = this.INIT + this.LINE_SPACING;
 
     // ── Header ────────────────────────────────────────────────
     if (bill.printLogo) out += this.NV_LOGO + '\n';
@@ -222,7 +228,7 @@ export class EscposFormatter {
   }
 
   public static formatTestPrint(payload: any): Buffer {
-    let out = this.INIT;
+    let out = this.INIT + this.LINE_SPACING;
 
     out += this.ALIGN_CENTER;
     out += this.BOLD_ON;
