@@ -32,10 +32,21 @@ Press **Find order or bill** and type the order number.
 - **Resend to screen** for any kitchen ticket.
 - Owners can **Void** a paid bill. A reason is required, and the order reopens for correction.
 
-## 5. Accounts
+## 5. Closing the counter (end of the day)
+We work past midnight, so sales are saved by **business day**, not by the calendar. The date on the billing desk (for example **Fri, 27 Nov**) is the day the counter opened. A bill settled at 12:40 am still counts for Fri, 27 Nov.
+
+When the last customer has paid:
+1. Press **Close counter**. You see the day's bills, total sales, cash and UPI. If orders are still open, they're listed. Settle or cancel them first if you can.
+2. Press **Close counter** (or **Close anyway** if orders are open). That day is now closed, and any new sale goes to the next day.
+
+Pressed it by mistake? Press **Undo close** straight away, or open **Close counter** again and press **Reopen**. This works only until the first bill of the new day is settled.
+
+Forgot to close? The day ends on its own at 6 am, so the next morning starts fresh.
+
+## 6. Accounts
 Open **Accounts** in the left menu to record vendor bills and payments and daily salary payments. See the accounts guide. You can delete only the entries you made today; ask a manager to fix older ones.
 
-## 6. Alerts
+## 7. Alerts
 - **Station screen offline**: tickets are saved and appear when the screen reconnects. Tell the kitchen if it's urgent and check the tablet's power/WiFi.
 - **Tickets not shown on a kitchen screen**: press **Resend all**, or open **Details** to resend one at a time.
 - **Bill print failed**: check the printer's paper and power, then press **Print again**.

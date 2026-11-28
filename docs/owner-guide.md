@@ -40,6 +40,7 @@
 ---
 
 ## 6. Reports & Business Analytics (`/admin/reports`)
+- **Dates are business days.** The counter runs from about 11 am to 1 am. Everything up to **Close counter** (or 6 am at the latest) counts for the day the counter opened, so a 12:40 am bill is in the previous day's sales. Bills from before this feature were sorted the same way: paid before 6 am counts for the day before.
 - **Daily Sales**: Total revenue, bill counts, average order size, and daily breakdown.
 - **Item Breakdown**: Best-selling dishes by volume and revenue, with station filtering.
 - **Payment Split**: Total cash collections vs UPI / digital settlements.

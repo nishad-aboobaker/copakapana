@@ -9,6 +9,7 @@ jest.mock('../models/User');
 // The station-screen migration touches these; they're irrelevant to the owner seeder
 jest.mock('../models/Order');
 jest.mock('../models/Ticket');
+jest.mock('../models/Bill', () => ({ Bill: { updateMany: jest.fn().mockResolvedValue({ modifiedCount: 0 }) } }));
 
 describe('Default Owner Seeder (Bootstrap Service)', () => {
   beforeEach(() => {

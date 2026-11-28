@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { Bill } from '../models/Bill';
 import { Ticket } from '../models/Ticket';
 import { BillStatus } from '../types';
+import { DAY_CUTOFF_HOUR, currentBusinessDate } from './businessDay.service';
 
 /** Today's date (YYYY-MM-DD) in the restaurant's timezone. */
 export function todayIST(): string {
@@ -16,13 +17,21 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * Day boundaries in Asia/Kolkata (PRD), independent of the server's own timezone.
  * `from`/`to` are YYYY-MM-DD; both default to today (IST).
  */
-export function parseDateRange(fromStr?: string, toStr?: string): { startDate: Date; endDate: Date } {
-  const from = fromStr && DATE_RE.test(fromStr) ? fromStr : todayIST();
+export function parseDateRange(fromStr?: string, toStr?: string, fallback = todayIST()): { from: string; to: string; startDate: Date; endDate: Date } {
+  const from = fromStr && DATE_RE.test(fromStr) ? fromStr : fallback;
   const to = toStr && DATE_RE.test(toStr) ? toStr : from;
-  const startDate = new Date(`${from}T00:00:00.000+05:30`);
-  const endDate = new Date(`${to}T23:59:59.999+05:30`);
-  return { startDate, endDate };
+  // Clock-time window of those business days: 6 am on the first day to 6 am after the last
+  const hh = String(DAY_CUTOFF_HOUR).padStart(2, '0');
+  const startDate = new Date(`${from}T${hh}:00:00.000+05:30`);
+  const endDate = new Date(new Date(`${to}T${hh}:00:00.000+05:30`).getTime() + 24 * 60 * 60 * 1000 - 1);
+  return { from, to, startDate, endDate };
 }
+
+/** Sales are filed by business date (see BusinessDay): a 12:30 am bill counts for the day before. */
+const salesRange = async (fromStr?: string, toStr?: string) => {
+  const r = parseDateRange(fromStr, toStr, await currentBusinessDate());
+  return { ...r, match: { businessDate: { $gte: r.from, $lte: r.to } } };
+};
 
 export function toCsv(columns: { header: string; key: string }[], data: any[]): string {
   const headerRow = columns.map((c) => `"${c.header.replace(/"/g, '""')}"`).join(',');
@@ -42,11 +51,11 @@ export class ReportsService {
    * Daily sales aggregation grouped by day
    */
   public static async getDailySales(from?: string, to?: string) {
-    const { startDate, endDate } = parseDateRange(from, to);
+    const { match: dayMatch } = await salesRange(from, to);
 
     const matchStage = {
       status: BillStatus.Paid,
-      paidAt: { $gte: startDate, $lte: endDate },
+      ...dayMatch,
     };
 
     const results = await Bill.aggregate([
@@ -54,7 +63,7 @@ export class ReportsService {
       {
         $group: {
           _id: {
-            $dateToString: { format: '%Y-%m-%d', date: '$paidAt', timezone: 'Asia/Kolkata' },
+            $ifNull: ['$businessDate', { $dateToString: { format: '%Y-%m-%d', date: '$paidAt', timezone: 'Asia/Kolkata' } }],
           },
           totalRevenue: { $sum: '$total' },
           orderCount: { $sum: 1 },
@@ -86,11 +95,11 @@ export class ReportsService {
    * Item-wise sales breakdown with optional station filter
    */
   public static async getItemSales(from?: string, to?: string, station?: string) {
-    const { startDate, endDate } = parseDateRange(from, to);
+    const { match: dayMatch } = await salesRange(from, to);
 
     const matchStage: any = {
       status: BillStatus.Paid,
-      paidAt: { $gte: startDate, $lte: endDate },
+      ...dayMatch,
     };
 
     const pipeline: any[] = [
@@ -134,11 +143,11 @@ export class ReportsService {
    * Payment split (Cash vs UPI)
    */
   public static async getPaymentSplit(from?: string, to?: string) {
-    const { startDate, endDate } = parseDateRange(from, to);
+    const { match: dayMatch } = await salesRange(from, to);
 
     const matchStage = {
       status: BillStatus.Paid,
-      paidAt: { $gte: startDate, $lte: endDate },
+      ...dayMatch,
     };
 
     const results = await Bill.aggregate([
@@ -172,13 +181,13 @@ export class ReportsService {
    * Order type breakdown (Dine-in vs Takeaway vs Delivery)
    */
   public static async getOrderTypeSplit(from?: string, to?: string) {
-    const { startDate, endDate } = parseDateRange(from, to);
+    const { match: dayMatch } = await salesRange(from, to);
 
     const results = await Bill.aggregate([
       {
         $match: {
           status: BillStatus.Paid,
-          paidAt: { $gte: startDate, $lte: endDate },
+          ...dayMatch,
         },
       },
       {
@@ -214,13 +223,13 @@ export class ReportsService {
    * Waiter-wise performance sales
    */
   public static async getWaiterSales(from?: string, to?: string) {
-    const { startDate, endDate } = parseDateRange(from, to);
+    const { match: dayMatch } = await salesRange(from, to);
 
     const results = await Bill.aggregate([
       {
         $match: {
           status: BillStatus.Paid,
-          paidAt: { $gte: startDate, $lte: endDate },
+          ...dayMatch,
         },
       },
       {
@@ -268,7 +277,7 @@ export class ReportsService {
    * Kitchen performance per station: ticket count, average and longest sent→ready (minutes).
    */
   public static async getKitchenPerformance(from?: string, to?: string) {
-    const { startDate, endDate } = parseDateRange(from, to);
+    const { startDate, endDate } = parseDateRange(from, to, await currentBusinessDate());
 
     return Ticket.aggregate([
       { $match: { createdAt: { $gte: startDate, $lte: endDate }, readyAt: { $exists: true } } },
@@ -300,7 +309,7 @@ export class ReportsService {
    * End of Day (EOD) Summary for a single date
    */
   public static async getEODSummary(dateStr?: string) {
-    const date = dateStr && DATE_RE.test(dateStr) ? dateStr : todayIST();
+    const date = dateStr && DATE_RE.test(dateStr) ? dateStr : await currentBusinessDate();
     const [daily, items, payments, orderTypes, waiters] = await Promise.all([
       this.getDailySales(date, date),
       this.getItemSales(date, date),

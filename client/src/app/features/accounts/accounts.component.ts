@@ -671,8 +671,20 @@ export class AccountsComponent implements OnInit {
 
   private role = computed(() => this.auth.currentUser?.role ?? 'cashier');
 
+  /** Date new entries default to: the open business day (stays on the day the counter opened, even after midnight). */
+  private entryDay = todayIST();
+
   ngOnInit(): void {
     this.loadVendors();
+    this.http.get<{ date: string }>(`${environment.apiUrl}/business-day`).subscribe({
+      next: (d) => {
+        if (!d?.date || d.date > this.today) return;
+        if (this.ve.date === this.entryDay) this.ve.date = d.date;
+        if (this.sp.date === this.entryDay) this.sp.date = d.date;
+        this.entryDay = d.date;
+      },
+      error: () => undefined,
+    });
   }
 
   setTab(t: Tab): void {
@@ -701,7 +713,7 @@ export class AccountsComponent implements OnInit {
   selectVendor(id: string): void {
     if (this.vendorId() !== id) {
       this.vendorDetail.set(null);
-      this.ve = { date: todayIST(), bill: null, paid: null, mode: 'cash', note: '' };
+      this.ve = { date: this.entryDay, bill: null, paid: null, mode: 'cash', note: '' };
     }
     this.vendorId.set(id);
     this.http.get<VendorDetail>(`${this.api}/vendors/${id}`).subscribe({
@@ -794,7 +806,7 @@ export class AccountsComponent implements OnInit {
   selectStaff(id: string): void {
     if (this.staffId() !== id) {
       this.staffDetail.set(null);
-      this.sp = { date: todayIST(), amount: null, mode: 'cash', note: '' };
+      this.sp = { date: this.entryDay, amount: null, mode: 'cash', note: '' };
     }
     this.staffId.set(id);
     this.http.get<StaffDetail>(`${this.api}/staff/${id}`).subscribe({

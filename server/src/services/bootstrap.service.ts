@@ -4,6 +4,8 @@ import { Role } from '../types';
 import { env } from '../config/env';
 import { Order } from '../models/Order';
 import { Ticket } from '../models/Ticket';
+import { Bill } from '../models/Bill';
+import { DAY_CUTOFF_HOUR } from './businessDay.service';
 
 /**
  * Moves data saved under the old "kot" names to the kitchen-ticket names, keeping
@@ -81,7 +83,29 @@ export const ensureDefaultOwner = async (): Promise<IUser | null> => {
 };
 
 /** Startup tasks: make sure an owner exists, then bring old data up to date. */
+/**
+ * Gives bills paid before "Close counter" existed a business date: paid before 6 am counts
+ * for the previous day (the restaurant runs past midnight). Does nothing once done.
+ */
+export const backfillBusinessDates = async (): Promise<void> => {
+  const res = await Bill.updateMany({ paidAt: { $exists: true, $ne: null }, businessDate: { $exists: false } }, [
+    {
+      $set: {
+        businessDate: {
+          $dateToString: {
+            format: '%Y-%m-%d',
+            date: { $subtract: ['$paidAt', DAY_CUTOFF_HOUR * 60 * 60 * 1000] },
+            timezone: 'Asia/Kolkata',
+          },
+        },
+      },
+    },
+  ]);
+  if (res.modifiedCount) console.log(`📅 [Bootstrap] Business date set on ${res.modifiedCount} older bills`);
+};
+
 export const bootstrapDefaultData = async (): Promise<void> => {
   await ensureDefaultOwner();
   await migrateLegacyTickets();
+  await backfillBusinessDates();
 };

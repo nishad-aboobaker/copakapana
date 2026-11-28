@@ -6,6 +6,7 @@ import { Counter } from '../models/Counter';
 import { Order } from '../models/Order';
 import { Settings } from '../models/Settings';
 import { Table } from '../models/Table';
+import { ensureOpenDay } from '../services/businessDay.service';
 import { PrintService } from '../services/print.service';
 import { emitOrderUpdated, emitTableUpdated } from '../socket';
 import { IBill } from '../models/Bill';
@@ -318,6 +319,8 @@ export const closeBill = async (req: Request, res: Response): Promise<void> => {
 
   bill.status = BillStatus.Paid;
   bill.paidAt = new Date();
+  // Filed under the open business day (a 12:30 am bill still counts for the day that opened at 11 am)
+  bill.businessDate = (await ensureOpenDay(bill.paidAt)).date;
   bill.closedBy = new mongoose.Types.ObjectId(userId);
   bill.closedByName = req.user!.name;
   await bill.save();

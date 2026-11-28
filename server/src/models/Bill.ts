@@ -29,6 +29,8 @@ export interface IBill extends Document {
   voidReason?: string;
   createdAt: Date;
   paidAt?: Date;
+  /** Business date the payment is filed under ('YYYY-MM-DD'); see BusinessDay. */
+  businessDate?: string;
   updatedAt: Date;
 }
 
@@ -119,6 +121,10 @@ const billSchema = new Schema<IBill>(
     voidReason: String,
     paidAt: {
       type: Date,
+      index: true,
+    },
+    businessDate: {
+      type: String,
       index: true,
     },
   },

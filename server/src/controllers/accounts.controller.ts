@@ -4,6 +4,7 @@ import { AuditLog } from '../models/AuditLog';
 import { ISalaryStaff, SalaryPayment, SalaryStaff } from '../models/SalaryStaff';
 import { Vendor, VendorEntry } from '../models/Vendor';
 import { rateOn, roundMoney, salaryEarned } from '../services/accounts.service';
+import { currentBusinessDate } from '../services/businessDay.service';
 import { Role, RoleLevel } from '../types';
 import { addDays, firstOfMonth, isValidYmd, lastOfMonth, minYmd, todayIST } from '../utils/ymd';
 
@@ -44,9 +45,9 @@ const text = (v: unknown, max = 200): string | undefined => {
 
 const parseMode = (v: unknown): Mode | undefined => (MODES.includes(v as Mode) ? (v as Mode) : undefined);
 
-/** Entry date: defaults to today, must be a real date and not in the future. */
-const entryDate = (v: unknown): string | null => {
-  if (v === undefined || v === null || v === '') return todayIST();
+/** Entry date: defaults to the current business day, must be a real date and not in the future. */
+const entryDate = async (v: unknown): Promise<string | null> => {
+  if (v === undefined || v === null || v === '') return currentBusinessDate();
   if (!isValidYmd(v) || v > todayIST()) return null;
   return v;
 };
@@ -154,7 +155,7 @@ export const addVendorEntry = async (req: Request, res: Response): Promise<void>
   if (!isId(req.params.id)) return notFound(res, 'Vendor');
   const vendor = await Vendor.findById(req.params.id).lean();
   if (!vendor) return notFound(res, 'Vendor');
-  const date = entryDate(req.body?.date);
+  const date = await entryDate(req.body?.date);
   if (!date) return bad(res, 'Pick a valid date (not in the future)');
   const billAmount = money(req.body?.billAmount);
   const paidAmount = money(req.body?.paidAmount);
@@ -237,7 +238,7 @@ export const createSalaryStaff = async (req: Request, res: Response): Promise<vo
   if (monthly === null || monthly < 0) return bad(res, 'Monthly salary is required');
   const openingBalance = signedMoney(b.openingBalance);
   if (openingBalance === null) return bad(res, 'Outstanding salary must be a number');
-  const startDate = entryDate(b.startDate);
+  const startDate = await entryDate(b.startDate);
   if (!startDate) return bad(res, 'Pick a valid start date (not in the future)');
   const staff = await SalaryStaff.create({
     name,
@@ -336,7 +337,7 @@ export const addSalaryPayment = async (req: Request, res: Response): Promise<voi
   if (!isId(req.params.id)) return notFound(res, 'Staff member');
   const staff = await SalaryStaff.findById(req.params.id).lean();
   if (!staff) return notFound(res, 'Staff member');
-  const date = entryDate(req.body?.date);
+  const date = await entryDate(req.body?.date);
   if (!date) return bad(res, 'Pick a valid date (not in the future)');
   const amount = money(req.body?.amount);
   if (!amount) return bad(res, 'Enter the amount paid');

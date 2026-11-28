@@ -5,15 +5,12 @@ import { Bill } from '../models/Bill';
 import { IOrder, Order } from '../models/Order';
 import { Ticket } from '../models/Ticket';
 import { emitOrderUpdated } from '../socket';
+import { currentDayStart } from '../services/businessDay.service';
 import { BillStatus, CollectedMode, DeliveryStatus, ItemStatus, OrderStatus, OrderType, TicketStatus } from '../types';
 
 /** Paid delivery orders older than this that were never marked delivered stop showing as active. */
 const ACTIVE_WINDOW_MS = 18 * 60 * 60 * 1000;
 
-const startOfTodayIST = (): Date => {
-  const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-  return new Date(`${ymd}T00:00:00+05:30`);
-};
 
 type KitchenState = 'none' | 'cooking' | 'ready';
 
@@ -88,7 +85,7 @@ export const listDeliveries = async (_req: Request, res: Response): Promise<void
     Order.find({
       type: OrderType.Delivery,
       'delivery.status': DeliveryStatus.Delivered,
-      'delivery.deliveredAt': { $gte: startOfTodayIST() },
+      'delivery.deliveredAt': { $gte: await currentDayStart() },
     }).sort({ 'delivery.deliveredAt': -1 }),
   ]);
 

@@ -29,6 +29,22 @@ interface OrderSummary {
   };
 }
 
+interface DaySummary {
+  bills: number;
+  total: number;
+  cash: number;
+  upi: number;
+  discount: number;
+  openOrders: number;
+}
+
+interface BusinessDayInfo {
+  date: string;
+  open: boolean;
+  summary: DaySummary;
+  lastClosed: { date: string; closedByName?: string } | null;
+}
+
 interface BillData {
   _id: string;
   number: number;
@@ -78,6 +94,12 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
           </div>
         </div>
         <div class="page-actions">
+          @if (businessDay) {
+            <span class="day-chip" title="Sales are saved under this date until you close the counter">
+              <app-icon name="calendar" [size]="14" /> {{ dayLabel(businessDay.date) }}
+            </span>
+          }
+          <button class="btn" (click)="openCloseCounter()"><app-icon name="lock" /> Close counter</button>
           <button class="btn" (click)="openLookup()"><app-icon name="search" /> Find order or bill</button>
           <button class="btn btn-ghost btn-icon" (click)="refreshAll()" title="Refresh" aria-label="Refresh"><app-icon name="refresh" /></button>
         </div>
@@ -476,6 +498,66 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
         </div>
       }
 
+      <!-- ─── Close counter dialog ─── -->
+      @if (showCloseModal && businessDay) {
+        <div class="modal-backdrop" (click)="closeCloseModal()">
+          <div class="modal" role="dialog" aria-modal="true" aria-label="Close counter" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <div>
+                @if (closedDay) {
+                  <h3>Counter closed · {{ dayLabel(closedDay.date) }}</h3>
+                  <p>New sales now go to {{ dayLabel(nextDate) }}.</p>
+                } @else {
+                  <h3>Close counter for {{ dayLabel(businessDay.date) }}?</h3>
+                  <p>Everything settled since the counter opened is saved under {{ dayLabel(businessDay.date) }}, even after midnight.</p>
+                }
+              </div>
+              <button class="btn btn-ghost btn-icon modal-close" (click)="closeCloseModal()" aria-label="Close"><app-icon name="x" /></button>
+            </div>
+            <div class="modal-body">
+              @let sum = closedDay?.summary ?? businessDay.summary;
+              <div class="day-sum">
+                <div><span>Bills</span><strong class="num">{{ sum.bills }}</strong></div>
+                <div class="big"><span>Total sales</span><strong class="num">₹{{ sum.total }}</strong></div>
+                <div><span>Cash</span><strong class="num">₹{{ sum.cash }}</strong></div>
+                <div><span>UPI</span><strong class="num">₹{{ sum.upi }}</strong></div>
+                @if (sum.discount) { <div><span>Discounts</span><strong class="num">₹{{ sum.discount }}</strong></div> }
+              </div>
+              @if (!closedDay && closeOpenOrders.length) {
+                <div class="alert alert-warning">
+                  <app-icon name="alert" />
+                  <div class="alert-body">
+                    <span class="alert-title">{{ closeOpenOrders.length }} order{{ closeOpenOrders.length === 1 ? ' is' : 's are' }} still open:</span>
+                    {{ openOrderNumbers }}. If you close now, they go into the next day when they're paid.
+                  </div>
+                </div>
+              }
+              @if (!closedDay) {
+                <p class="text-muted text-sm">After closing, any new sale is saved under the next day. If nobody closes the counter, the day ends on its own at 6 am.</p>
+                @if (canReopen) {
+                  <p class="text-sm reopen-line">
+                    Closed {{ dayLabel(businessDay.lastClosed!.date) }} by mistake?
+                    <button class="btn btn-sm btn-ghost" [disabled]="closingDay" (click)="reopenDay()"><app-icon name="undo" /> Reopen {{ dayLabel(businessDay.lastClosed!.date) }}</button>
+                  </p>
+                }
+              }
+            </div>
+            <div class="modal-footer">
+              @if (closedDay) {
+                <button class="btn btn-ghost" [disabled]="closingDay" (click)="reopenDay()"><app-icon name="undo" /> Undo close</button>
+                <button class="btn btn-primary" (click)="closeCloseModal()">Done</button>
+              } @else {
+                <button class="btn" (click)="closeCloseModal()">Cancel</button>
+                <button class="btn btn-primary" [disabled]="closingDay" (click)="confirmCloseCounter()">
+                  @if (closingDay) { <span class="spinner"></span> } @else { <app-icon name="lock" /> }
+                  {{ closeOpenOrders.length ? 'Close anyway' : 'Close counter' }}
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
       <!-- ─── Find order / bill dialog ─── -->
       @if (showReprintModal) {
         <div class="modal-backdrop" (click)="showReprintModal = false">
@@ -549,6 +631,13 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
       :host { display: block; }
       .desk { display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem 1.5rem; height: 100vh; min-height: 640px; }
       .desk-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+      .reopen-line { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; color: var(--text-muted); }
+      .day-chip { display: inline-flex; align-items: center; gap: 0.35rem; height: 36px; padding: 0 0.75rem; border-radius: var(--radius-full); background: var(--gray-100); color: var(--text-strong); font-size: var(--fs-sm); font-weight: 650; white-space: nowrap; }
+      .day-sum { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+      .day-sum > div { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.7rem 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+      .day-sum > div.big { background: var(--primary-soft); border-color: transparent; }
+      .day-sum span { font-size: var(--fs-xs); color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+      .day-sum strong { font-size: var(--fs-lg); color: var(--text-strong); }
       .devices { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.4rem; }
       .device { display: inline-flex; align-items: center; gap: 0.3rem; height: 24px; padding: 0 0.55rem; border-radius: var(--radius-full); font-size: var(--fs-xs); font-weight: 600; background: var(--success-soft); color: var(--success); }
       .device.off { background: var(--danger-soft); color: var(--danger); }
@@ -709,6 +798,14 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
 
   // Lookup
   showReprintModal = false;
+
+  // Business day / close counter
+  businessDay: BusinessDayInfo | null = null;
+  showCloseModal = false;
+  closingDay = false;
+  closeOpenOrders: { number: number; type: string }[] = [];
+  closedDay: { date: string; summary: DaySummary } | null = null;
+  nextDate = '';
   reprintSearchQuery = '';
   reprintResult: any = null;
   reprintBillData: any = null;
@@ -723,6 +820,7 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
         if (this.selectedOrder && o?._id === this.selectedOrder._id && !this.activeBill) this.reloadSelected();
       }),
       this.socketService.reconnect$.subscribe(() => this.refreshAll()),
+      this.socketService.fromEvent<any>('day:closed').subscribe(() => this.fetchBusinessDay()),
       this.socketService.fromEvent<any>('kds:status').subscribe((s) => (this.stationStatus = s || {})),
       this.socketService.fromEvent<any[]>('ticket:undelivered').subscribe((list) => (this.undeliveredTickets = list || [])),
       this.socketService.fromEvent<any>('agent:status').subscribe((a) => (this.agentOnline = !!a?.online)),
@@ -744,7 +842,86 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
     this.subs.forEach((s) => s.unsubscribe());
   }
 
+  // ─── Business day / close counter ───────────────────────────────────────
+  fetchBusinessDay(): void {
+    this.http.get<BusinessDayInfo>(`${environment.apiUrl}/business-day`).subscribe({
+      next: (d) => (this.businessDay = d),
+      error: () => undefined,
+    });
+  }
+
+  openCloseCounter(): void {
+    this.closedDay = null;
+    this.closeOpenOrders = [];
+    this.showCloseModal = true;
+    this.http.get<BusinessDayInfo>(`${environment.apiUrl}/business-day`).subscribe({ next: (d) => (this.businessDay = d) });
+    this.http.get<{ orders: any[] }>(`${environment.apiUrl}/orders`, { params: { status: 'open,billed' } }).subscribe({
+      next: (r) => (this.closeOpenOrders = (r.orders ?? []).filter((o) => o.status === 'open' || o.status === 'billed')),
+      error: () => undefined,
+    });
+  }
+
+  get openOrderNumbers(): string {
+    const list = this.closeOpenOrders.map((o) => '#' + o.number);
+    return list.length > 8 ? list.slice(0, 8).join(', ') + ` and ${list.length - 8} more` : list.join(', ');
+  }
+
+  confirmCloseCounter(): void {
+    if (this.closingDay) return;
+    this.closingDay = true;
+    this.http
+      .post<{ day: { date: string; summary: DaySummary }; nextDate: string }>(`${environment.apiUrl}/business-day/close`, { force: true })
+      .subscribe({
+        next: (r) => {
+          this.closingDay = false;
+          this.closedDay = r.day;
+          this.nextDate = r.nextDate;
+          this.fetchBusinessDay();
+        },
+        error: (err) => {
+          this.closingDay = false;
+          this.ui.apiError(err, 'Could not close the counter');
+        },
+      });
+  }
+
+  /** Reopen the last closed day — offered only while the new day has no sales yet. */
+  get canReopen(): boolean {
+    const d = this.businessDay;
+    return !!d?.lastClosed && d.lastClosed.closedByName !== 'Automatic' && d.summary.bills === 0;
+  }
+
+  reopenDay(): void {
+    if (this.closingDay) return;
+    this.closingDay = true;
+    this.http.post<{ date: string }>(`${environment.apiUrl}/business-day/reopen`, {}).subscribe({
+      next: (r) => {
+        this.closingDay = false;
+        this.showCloseModal = false;
+        this.closedDay = null;
+        this.ui.success(`Sales go to ${this.dayLabel(r.date)} again`, 'Counter reopened');
+        this.fetchBusinessDay();
+      },
+      error: (err) => {
+        this.closingDay = false;
+        this.ui.apiError(err, 'Could not reopen the day');
+      },
+    });
+  }
+
+  closeCloseModal(): void {
+    this.showCloseModal = false;
+    this.closedDay = null;
+  }
+
+  /** '2026-11-27' → 'Fri, 27 Nov' */
+  dayLabel(ymd: string): string {
+    if (!ymd) return '';
+    return new Date(`${ymd}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  }
+
   refreshAll(): void {
+    this.fetchBusinessDay();
     this.fetchOpenOrders();
     this.fetchFailedJobs();
     this.fetchKdsStatus();
@@ -1085,6 +1262,7 @@ export class CashierHomeComponent implements OnInit, OnDestroy {
           next: () => {
             this.isClosing = false;
             this.lastClosed = { id: bill._id, number: bill.number, total: bill.total, change };
+            this.fetchBusinessDay();
             this.ui.success(change > 0 ? `Give back ₹${change} change` : 'Payment saved', `Bill #${bill.number} settled`);
             this.clearSelection();
             this.fetchOpenOrders();
