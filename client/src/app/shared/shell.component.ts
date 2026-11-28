@@ -28,6 +28,7 @@ const NAV: NavGroup[] = [
     items: [
       { label: 'Billing desk', icon: 'receipt', link: '/cashier/home', minRole: 'cashier' },
       { label: 'Take orders', icon: 'utensils', link: '/waiter/tables', minRole: 'cashier' },
+      { label: 'Orders', icon: 'history', link: '/orders', minRole: 'cashier' },
       { label: 'Customers', icon: 'user', link: '/customers', minRole: 'cashier' },
       { label: 'Accounts', icon: 'wallet', link: '/accounts', minRole: 'cashier' },
     ],

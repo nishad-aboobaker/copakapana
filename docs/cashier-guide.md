@@ -32,7 +32,19 @@ Press **Find order or bill** and type the order number.
 - **Resend to screen** for any kitchen ticket.
 - Owners can **Void** a paid bill. A reason is required, and the order reopens for correction.
 
-## 5. Closing the counter (end of the day)
+## 5. Orders page
+Open **Orders** in the left menu to see every order, paid or not.
+- **Dates**: pick From / To, or tap **Today**, **Yesterday**, **Last 7 days** or **This month**. Dates are business days, so an order settled at 12:30 am is listed under the day before.
+- **Filters**: Dine-in / Takeaway / Delivery, a status (Open, Billed, Paid, Cancelled), and search by order number, table (e.g. `G1`), customer name or phone.
+- The top line shows how many orders there are, the total paid, and how many aren't paid yet.
+- Tap an order to see its items (cancelled ones struck out), the bill, how it was paid and who settled it, the delivery status, and its kitchen tickets.
+- **Print**:
+  - **Print bill** prints a bill that isn't paid yet.
+  - **Reprint bill** prints a copy of a paid one, marked REPRINT.
+  - **Delivery bill** prints the rider's slip.
+  - If an open order has no bill yet, **Generate & print bill** creates and prints it, just like on the billing desk.
+
+## 6. Closing the counter (end of the day)
 We work past midnight, so sales are saved by **business day**, not by the calendar. The date on the billing desk (for example **Fri, 27 Nov**) is the day the counter opened. A bill settled at 12:40 am still counts for Fri, 27 Nov.
 
 When the last customer has paid:
@@ -43,10 +55,10 @@ Pressed it by mistake? Press **Undo close** straight away, or open **Close count
 
 Forgot to close? The day ends on its own at 6 am, so the next morning starts fresh.
 
-## 6. Accounts
+## 7. Accounts
 Open **Accounts** in the left menu to record vendor bills and payments and daily salary payments. See the accounts guide. You can delete only the entries you made today; ask a manager to fix older ones.
 
-## 7. Alerts
+## 8. Alerts
 - **Station screen offline**: tickets are saved and appear when the screen reconnects. Tell the kitchen if it's urgent and check the tablet's power/WiFi.
 - **Tickets not shown on a kitchen screen**: press **Resend all**, or open **Details** to resend one at a time.
 - **Bill print failed**: check the printer's paper and power, then press **Print again**.

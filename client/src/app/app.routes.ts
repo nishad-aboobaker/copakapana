@@ -70,6 +70,12 @@ export const routes: Routes = [
         loadComponent: () => import('./features/cashier/cashier-home.component').then((m) => m.CashierHomeComponent),
       },
       {
+        path: 'orders',
+        canActivate: [roleGuard('cashier')],
+        title: 'Orders · Copakapana',
+        loadComponent: () => import('./features/orders/orders.component').then((m) => m.OrdersComponent),
+      },
+      {
         path: 'customers',
         canActivate: [roleGuard('cashier')],
         title: 'Customers · Copakapana',
