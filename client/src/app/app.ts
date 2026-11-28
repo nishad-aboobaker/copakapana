@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { AppUpdateService } from './core/services/app-update.service';
 import { UiHostComponent } from './shared/ui-host.component';
 
 @Component({
@@ -13,4 +14,9 @@ import { UiHostComponent } from './shared/ui-host.component';
 })
 export class App {
   protected readonly title = signal('client');
+  protected readonly updates = inject(AppUpdateService);
+
+  constructor() {
+    this.updates.start();
+  }
 }

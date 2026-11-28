@@ -37,6 +37,7 @@ interface Ticket {
   isEdited: boolean;
   againstTicketNumber?: number;
   editedAt?: string;
+  deliveredAt?: string;
   addedItems: TicketItem[];
   cancelledItems: TicketItem[];
   status: TicketStatus;
@@ -46,6 +47,9 @@ interface Ticket {
   lastResentAt?: string;
   resent?: boolean;
 }
+
+/** How often the station screen re-checks its tickets with the server. */
+const RESYNC_MS = 20_000;
 
 interface KdsSettings {
   kdsWarnMinutes: number;
@@ -402,6 +406,7 @@ export class KdsScreenComponent implements OnInit, OnDestroy {
 
   private subs: Subscription[] = [];
   private timer?: ReturnType<typeof setInterval>;
+  private resync?: ReturnType<typeof setInterval>;
   private serverOffsetMs = 0;
   private audioCtx?: AudioContext;
   private wakeLock: any = null;
@@ -420,6 +425,11 @@ export class KdsScreenComponent implements OnInit, OnDestroy {
     this.muted.set(localStorage.getItem('kds_muted') === '1');
 
     this.timer = setInterval(() => this.now.set(Date.now() + this.serverOffsetMs), 1000);
+    // Safety net: re-check with the server every 20 s, so a change missed during a
+    // Wi-Fi blip still shows up without anyone reloading the screen.
+    this.resync = setInterval(() => {
+      if (document.visibilityState === 'visible') this.load();
+    }, RESYNC_MS);
 
     this.subs.push(
       this.socket.connected$.subscribe((c) => this.connected.set(c)),
@@ -441,6 +451,7 @@ export class KdsScreenComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.subs.forEach((s) => s.unsubscribe());
     if (this.timer) clearInterval(this.timer);
+    if (this.resync) clearInterval(this.resync);
     document.removeEventListener('visibilitychange', this.onVisibility);
     this.wakeLock?.release?.().catch?.(() => {});
   }
@@ -453,12 +464,18 @@ export class KdsScreenComponent implements OnInit, OnDestroy {
         next: (res) => {
           this.serverOffsetMs = new Date(res.serverTime).getTime() - Date.now();
           const before = new Set(this.tickets().map((k) => k._id));
+          const editedBefore = new Map(this.tickets().map((k) => [k._id, k.editedAt]));
           this.tickets.set(res.tickets);
           this.recentlyServed.set(res.recentlyServed);
           this.settings.set(res.settings);
           // Alert if a resync brought in tickets we hadn't seen (e.g. sent while offline)
           const missed = res.tickets.filter((k) => !before.has(k._id) && k.status === 'new');
-          if (before.size > 0 && missed.length) this.alert(missed.map((k) => k._id));
+          // …or changes to cards already on screen
+          const changed = res.tickets.filter((k) => before.has(k._id) && k.editedAt && k.editedAt !== editedBefore.get(k._id));
+          const alertIds = [...missed, ...changed].map((k) => k._id);
+          if (before.size > 0 && alertIds.length) this.alert(alertIds);
+          // Confirm to the server that these are on screen (clears the cashier's "not shown" alert)
+          res.tickets.filter((k) => !k.deliveredAt).forEach((k) => this.socket.emit('ticket:received', { ticketId: k._id }, () => {}));
         },
         error: (err) => this.error.set(err.error?.message || 'Could not load tickets'),
       });

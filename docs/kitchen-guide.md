@@ -43,4 +43,5 @@ Cards move left to right through three lanes:
 ## 5. If something goes wrong
 - **"OFFLINE" / red bar at the top**: the screen lost its connection. It reconnects by itself and then shows every ticket you missed. The cashier can see that the screen is offline.
 - **Screen went dark or the browser closed**: open it again and sign in. All open tickets come back.
+- **Updates**: the screen re-checks its tickets every 20 seconds, so a change that was missed during a Wi-Fi blip shows up on its own. When a new version of the app is published, the screen reloads itself and shows **Tap anywhere to start**. Tap once to turn the sound back on.
 - **A ticket looks wrong**: ask the waiter or cashier. Don't clear it until it's sorted.

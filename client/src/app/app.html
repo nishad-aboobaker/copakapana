@@ -1,2 +1,8 @@
 <router-outlet></router-outlet>
 <app-ui-host />
+@if (updates.updateReady()) {
+  <div class="update-bar" role="status">
+    <span>A new version of the app is ready.</span>
+    <button type="button" (click)="updates.reloadNow()">Refresh</button>
+  </div>
+}
