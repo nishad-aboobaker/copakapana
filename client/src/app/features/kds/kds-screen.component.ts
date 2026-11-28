@@ -15,6 +15,8 @@ interface TicketItem {
   qty: number;
   portion?: string;
   note?: string;
+  /** Order edited after the card went out: 'added' shows green, 'cancelled' is struck out. */
+  change?: 'added' | 'cancelled';
 }
 
 interface Ticket {
@@ -34,6 +36,7 @@ interface Ticket {
   items: TicketItem[];
   isEdited: boolean;
   againstTicketNumber?: number;
+  editedAt?: string;
   addedItems: TicketItem[];
   cancelledItems: TicketItem[];
   status: TicketStatus;
@@ -106,9 +109,13 @@ interface KdsSettings {
             <h2 [class]="'lane-h ' + lane.key">{{ lane.title }} <span>{{ lanes()[lane.key].length }}</span></h2>
             <div class="cards">
               @for (k of lanes()[lane.key]; track k._id) {
-                <article class="card" [class]="'card ' + timerClass(k)" [class.edited]="k.isEdited" [class.fresh]="isFresh(k)">
-                  @if (k.isEdited) {
-                    <div class="edited-banner">EDITED{{ k.againstTicketNumber ? ' · vs #' + k.againstTicketNumber : '' }}</div>
+                <article class="card" [class]="'card ' + timerClass(k)" [class.edited]="k.isEdited" [class.updated]="!!k.editedAt && !k.isEdited" [class.fresh]="isFresh(k)">
+                  @if (allCancelled(k)) {
+                    <div class="edited-banner">ALL ITEMS CANCELLED</div>
+                  } @else if (k.isEdited) {
+                    <div class="edited-banner">EXTRA ITEMS{{ k.againstTicketNumber ? ' · for #' + k.againstTicketNumber : '' }}</div>
+                  } @else if (k.editedAt) {
+                    <div class="updated-banner">ORDER UPDATED · {{ time(k.editedAt) }}</div>
                   }
                   @if (k.resent || k.resendCount) {
                     <div class="resent">RESENT {{ k.lastResentAt ? time(k.lastResentAt) : '' }}</div>
@@ -126,7 +133,7 @@ interface KdsSettings {
                   }
 
                   <div class="items">
-                    @if (k.isEdited) {
+                    @if (isLegacyEdit(k)) {
                       @if (k.addedItems.length) {
                         <div class="sec add">ADD</div>
                         @for (i of k.addedItems; track $index) {
@@ -146,9 +153,11 @@ interface KdsSettings {
                       }
                     } @else {
                       @for (i of k.items; track $index) {
-                        <div class="item">
-                          <b>{{ i.qty }} ×</b> {{ i.name }}{{ i.portion ? ' (' + i.portion + ')' : '' }}
-                          @if (i.note) { <div class="note">note: {{ i.note }}</div> }
+                        <div class="item" [class.added]="i.change === 'added' && !k.isEdited" [class.cancelled]="i.change === 'cancelled'">
+                          @if (i.change === 'added' && !k.isEdited) { <span class="tag tag-new">NEW</span> }
+                          @if (i.change === 'cancelled') { <span class="tag tag-x">CANCELLED</span> }
+                          <span class="line"><b>{{ i.qty }} ×</b> {{ i.name }}{{ i.portion ? ' (' + i.portion + ')' : '' }}</span>
+                          @if (i.note && i.change !== 'cancelled') { <div class="note">note: {{ i.note }}</div> }
                         </div>
                       }
                     }
@@ -157,6 +166,9 @@ interface KdsSettings {
                   <div class="card-f">
                     <span class="order">Order #{{ k.context.orderNumber }}</span>
                     <div class="actions">
+                      @if (allCancelled(k)) {
+                        <button class="go clear" [disabled]="busy().has(k._id)" (click)="move(k, 'served')">REMOVE</button>
+                      } @else {
                       @if (k.status === 'preparing') {
                         <button class="back" [disabled]="busy().has(k._id)" (click)="move(k, 'new')" aria-label="Back to new"><app-icon name="undo" [size]="20" /></button>
                       }
@@ -171,6 +183,7 @@ interface KdsSettings {
                       }
                       @if (k.status === 'ready') {
                         <button class="go clear" [disabled]="busy().has(k._id)" (click)="move(k, 'served')">CLEAR</button>
+                      }
                       }
                     </div>
                   </div>
@@ -304,7 +317,14 @@ interface KdsSettings {
       .timer { font-weight: 800; font-variant-numeric: tabular-nums; color: #0f172a; }
       .items { padding: 0.5rem 0.7rem; border-top: 1px dashed #cbd5e1; border-bottom: 1px dashed #cbd5e1; margin-top: 0.4rem; }
       .item { font-size: 1.15rem; padding: 0.15rem 0; }
-      .item.cancelled { text-decoration: line-through; color: #b91c1c; }
+      .item.cancelled { color: #b91c1c; }
+      .item.cancelled .line { text-decoration: line-through; text-decoration-thickness: 3px; opacity: 0.75; }
+      .item.added { background: #dcfce7; color: #14532d; border-left: 5px solid #16a34a; margin: 0.2rem -0.7rem; padding: 0.25rem 0.7rem 0.25rem calc(0.7rem - 5px); font-weight: 700; }
+      .tag { display: inline-block; font-size: 0.7rem; font-weight: 900; letter-spacing: 1px; padding: 0.05rem 0.35rem; border-radius: 0.25rem; margin-right: 0.35rem; vertical-align: middle; color: #fff; }
+      .tag-new { background: #16a34a; }
+      .tag-x { background: #dc2626; }
+      .card.updated { border-color: #f59e0b; }
+      .updated-banner { background: #f59e0b; color: #111827; font-weight: 900; text-align: center; padding: 0.3rem; letter-spacing: 1px; font-size: 1rem; }
       .note { font-size: 0.95rem; color: #b45309; font-style: italic; padding-left: 1.6rem; }
       .sec { font-weight: 900; font-size: 0.85rem; letter-spacing: 1px; margin-top: 0.2rem; }
       .sec.add { color: #15803d; }
@@ -605,6 +625,15 @@ export class KdsScreenComponent implements OnInit, OnDestroy {
     return new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' }).format(
       new Date(iso),
     );
+  }
+
+  /** Old-style edit tickets (before edits were merged into the card) list ADD / CANCEL separately. */
+  public isLegacyEdit(k: Ticket): boolean {
+    return k.isEdited && !k.items.some((i) => i.change);
+  }
+
+  public allCancelled(k: Ticket): boolean {
+    return k.items.length > 0 && k.items.every((i) => i.change === 'cancelled');
   }
 
   public isFresh(k: Ticket): boolean {

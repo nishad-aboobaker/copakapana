@@ -23,8 +23,8 @@
 
 ## 4. After sending
 - **Sent** shows everything on the order with live kitchen status: *Sent → Preparing → Ready*.
-- **Add more**: go back to **Menu**, add dishes and send again. The kitchen sees an **EDIT** ticket with the new items.
-- **Cancel an item**: tap **×** next to it and confirm. The kitchen sees the cancellation. Cancellations are logged.
+- **Add more**: go back to **Menu**, add dishes and send again. The kitchen sees the new items added in green on the same card, with no new ticket. If the kitchen has already marked that card Ready, the new items go as a small **Extra** card.
+- **Cancel an item**: tap **×** next to it and confirm. The kitchen sees it struck out on the card. Cancellations are logged.
 - **Print bill**: tap **Print bill**. The bill prints on the counter printer; collect it and give it to the table. The table turns red and the billing desk sees the order as **Billed**. Need another copy? Tap **Print bill again**. Payment is still taken and settled at the billing desk.
 
 ## 5. Takeaway & delivery

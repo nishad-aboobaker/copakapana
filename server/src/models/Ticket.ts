@@ -6,6 +6,11 @@ export interface ITicketItem {
   qty: number;
   portion?: string;
   note?: string;
+  /** The order line this came from (matches cancellations to the right line). */
+  orderItemId?: string;
+  /** Set when the order was edited after the ticket went out: shown green (added) or struck out (cancelled). */
+  change?: 'added' | 'cancelled';
+  changedAt?: Date;
 }
 
 /**
@@ -29,8 +34,11 @@ export interface ITicket extends Document {
   station: Station;
   context: ITicketContext;
   items: ITicketItem[];
+  /** A separate "extra" ticket, sent because the original was already Ready/served. */
   isEdited: boolean;
   againstTicketNumber?: number;
+  /** Last time items were added to or cancelled on this ticket after it was sent. */
+  editedAt?: Date;
   addedItems: ITicketItem[];
   cancelledItems: ITicketItem[];
   // Kitchen workflow — the only mutable part of a ticket
@@ -53,6 +61,9 @@ const ticketItemSchema = new Schema<ITicketItem>(
     qty: { type: Number, required: true },
     portion: String,
     note: String,
+    orderItemId: String,
+    change: { type: String, enum: ['added', 'cancelled'] },
+    changedAt: Date,
   },
   { _id: false },
 );
@@ -80,6 +91,7 @@ const ticketSchema = new Schema<ITicket>(
     items: [ticketItemSchema],
     isEdited: { type: Boolean, default: false },
     againstTicketNumber: Number,
+    editedAt: Date,
     addedItems: [ticketItemSchema],
     cancelledItems: [ticketItemSchema],
     status: { type: String, enum: Object.values(TicketStatus), default: TicketStatus.New, index: true },

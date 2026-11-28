@@ -611,7 +611,7 @@ const STATION_NAMES: Record<string, string> = { fried_chicken: 'Fried Chicken', 
                       <span>
                         {{ stationNames[ticket.station] || ticket.station }} · #{{ ticket.number }}
                         <span class="badge">{{ ticket.status }}</span>
-                        @if (ticket.isEdited) { <span class="badge badge-danger">Edit</span> }
+                        @if (ticket.isEdited) { <span class="badge badge-danger">Extra</span> } @else if (ticket.editedAt) { <span class="badge badge-warning">Updated</span> }
                       </span>
                       <button class="btn btn-sm" (click)="resendTicketById(ticket._id)"><app-icon name="send" /> Resend to screen</button>
                     </div>

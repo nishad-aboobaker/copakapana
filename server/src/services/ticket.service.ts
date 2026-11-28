@@ -32,7 +32,21 @@ export class TicketError extends Error {
   }
 }
 
-const toTicketItem = (i: OrderItemLike): ITicketItem => ({ name: i.name, qty: i.qty, portion: i.portion, note: i.note });
+const toTicketItem = (i: OrderItemLike): ITicketItem => {
+  const id = (i as { _id?: unknown })._id;
+  return { name: i.name, qty: i.qty, portion: i.portion, note: i.note, ...(id ? { orderItemId: String(id) } : {}) };
+};
+
+/** Finds the ticket line for an order line: by its id, or by name/portion/note on older tickets. */
+const sameLine = (t: ITicketItem, i: ITicketItem): boolean =>
+  t.change !== 'cancelled' &&
+  (t.orderItemId && i.orderItemId
+    ? t.orderItemId === i.orderItemId
+    : t.name === i.name && (t.portion ?? '') === (i.portion ?? '') && (t.note ?? '') === (i.note ?? '') && t.qty === i.qty);
+
+/** Every line on the ticket is cancelled — the kitchen just needs to remove the card. */
+export const isFullyCancelled = (t: Pick<ITicket, 'items'>): boolean =>
+  t.items.length > 0 && t.items.every((i) => i.change === 'cancelled');
 
 /** Counter items (e.g. soft drinks) are billed but never shown on a kitchen screen. */
 const forKitchen = <T extends OrderItemLike>(items: T[]): T[] => items.filter((i) => !i.skipKitchen);
@@ -122,7 +136,12 @@ export class TicketService {
     return created;
   }
 
-  /** EDITED tickets when items are added or cancelled on an open order — one per affected station. */
+  /**
+   * An open order was edited. The change goes onto the card already on the station screen:
+   * cancelled lines are struck out, added lines are marked new (green). No new token —
+   * except when the station's card is already Ready or cleared: then added items come as a
+   * separate "extra" ticket, so the cook doesn't miss them on a finished card.
+   */
   public static async generateEditedTickets(
     order: IOrder,
     addedItems: OrderItemLike[],
@@ -139,28 +158,62 @@ export class TicketService {
     const context = await this.buildContext(order);
     const created: ITicket[] = [];
 
+    const now = new Date();
     for (const station of affected) {
       const stationAdded = addedItems.filter((i) => i.station === station).map(toTicketItem);
       const stationCancelled = cancelledItems.filter((i) => i.station === station).map(toTicketItem);
 
-      // Reference the station's first ticket for this order ("vs #014")
-      const original = await Ticket.findOne({ orderId: order._id, station, isEdited: false }).sort({ createdAt: 1 });
+      // Cards still on the screen for this order, newest first
+      const live = await Ticket.find({ orderId: order._id, station, status: { $ne: TicketStatus.Served } }).sort({ createdAt: -1 });
+      const touched = new Set<ITicket>();
 
-      const ticket = await Ticket.create({
-        number: await Counter.nextSeq(`ticket_${station}`),
-        orderId: order._id,
-        station,
-        context,
-        items: stationAdded,
-        isEdited: true,
-        againstTicketNumber: original?.number,
-        addedItems: stationAdded,
-        cancelledItems: stationCancelled,
-        status: TicketStatus.New,
-        createdBy: userId,
-      });
-      created.push(ticket);
-      this.dispatch(ticket);
+      // Strike out cancelled lines wherever they are on screen (already-served food needs nothing)
+      for (const c of stationCancelled) {
+        for (const t of live) {
+          const line = t.items.find((x) => sameLine(x, c));
+          if (line) {
+            line.change = 'cancelled';
+            line.changedAt = now;
+            touched.add(t);
+            break;
+          }
+        }
+      }
+
+      // Add new lines to the card the kitchen hasn't finished yet
+      if (stationAdded.length) {
+        const target = live.find((t) => t.status === TicketStatus.New || t.status === TicketStatus.Preparing);
+        if (target) {
+          target.items.push(...stationAdded.map((i) => ({ ...i, change: 'added' as const, changedAt: now })));
+          touched.add(target);
+        } else {
+          const original = await Ticket.findOne({ orderId: order._id, station, isEdited: false }).sort({ createdAt: 1 });
+          const extra = await Ticket.create({
+            number: await Counter.nextSeq(`ticket_${station}`),
+            orderId: order._id,
+            station,
+            context,
+            items: stationAdded.map((i) => ({ ...i, change: 'added' as const, changedAt: now })),
+            isEdited: true,
+            againstTicketNumber: original?.number,
+            addedItems: stationAdded,
+            cancelledItems: [],
+            status: TicketStatus.New,
+            createdBy: userId,
+          });
+          created.push(extra);
+          this.dispatch(extra);
+        }
+      }
+
+      for (const t of touched) {
+        t.markModified('items');
+        t.editedAt = now;
+        t.deliveredAt = undefined; // the screen must confirm it saw the change
+        await t.save();
+        created.push(t);
+        this.dispatch(t);
+      }
     }
 
     return created;
@@ -189,7 +242,8 @@ export class TicketService {
 
     if (actor.role === Role.Kitchen) {
       if (ticket.station !== actor.station) throw new TicketError(403, 'FORBIDDEN', 'Ticket belongs to another station');
-      if (!KDS_TRANSITIONS[ticket.status].includes(next)) {
+      const removingCancelled = next === TicketStatus.Served && isFullyCancelled(ticket);
+      if (!removingCancelled && !KDS_TRANSITIONS[ticket.status].includes(next)) {
         throw new TicketError(409, 'INVALID_TRANSITION', `Cannot move ticket from ${ticket.status} to ${next}`);
       }
     } else if (next !== TicketStatus.Served) {

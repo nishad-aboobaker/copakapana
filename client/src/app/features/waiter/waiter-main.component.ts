@@ -333,7 +333,7 @@ const TICKET_STATUS: Record<string, string> = { new: 'Sent', preparing: 'Prepari
                     <div class="ticket-main">
                       <strong>
                         {{ stationLabel(k.station) }}
-                        @if (k.isEdited) { <span class="badge badge-danger">Edit</span> }
+                        @if (k.isEdited) { <span class="badge badge-danger">Extra</span> } @else if (k.editedAt) { <span class="badge badge-warning">Updated</span> }
                       </strong>
                       <small>{{ ticketItemsSummary(k) }}</small>
                     </div>
@@ -1353,9 +1353,13 @@ export class WaiterMainComponent implements OnInit, OnDestroy {
   }
 
   ticketItemsSummary(k: any): string {
-    const items = k.isEdited ? k.addedItems || [] : k.items || [];
+    const all: any[] = k.items || [];
+    // Older edit tickets listed changes separately; newer cards mark each line
+    const legacy = k.isEdited && !all.some((i) => i.change);
+    const items = legacy ? k.addedItems || [] : all.filter((i) => i.change !== 'cancelled');
+    const cancelled = legacy ? k.cancelledItems || [] : all.filter((i) => i.change === 'cancelled');
     const add = items.map((i: any) => `${i.qty}× ${i.name}`).join(', ');
-    const cancel = (k.isEdited ? k.cancelledItems || [] : []).map((i: any) => `−${i.qty}× ${i.name}`).join(', ');
+    const cancel = cancelled.map((i: any) => `−${i.qty}× ${i.name}`).join(', ');
     return [add, cancel].filter(Boolean).join(' · ');
   }
 

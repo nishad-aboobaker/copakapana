@@ -83,11 +83,11 @@ describe('Ticket generation for station screens', () => {
     expect(emitted.some((e) => e.room === `user:${waiter._id}` && e.event === 'ticket:updated')).toBe(true);
   });
 
-  test('edit creates EDITED ticket only on affected stations, referencing the original', async () => {
+  test('an edit updates the card already on screen — added in green, cancelled struck out, no new token', async () => {
     const { order, waiter } = await makeOrder();
-    const [first] = (await TicketService.generateInitialTickets(order, order.items, waiter._id as any)).filter(
-      (k) => k.station === Station.FriedChicken,
-    );
+    const initial = await TicketService.generateInitialTickets(order, order.items, waiter._id as any);
+    const first = initial.find((k) => k.station === Station.FriedChicken)!;
+    const before = await Ticket.countDocuments({ orderId: order._id });
 
     const edited = await TicketService.generateEditedTickets(
       order,
@@ -96,10 +96,40 @@ describe('Ticket generation for station screens', () => {
       waiter._id as any,
     );
 
+    expect(await Ticket.countDocuments({ orderId: order._id })).toBe(before);
     expect(edited).toHaveLength(1);
-    expect(edited[0]).toMatchObject({ station: Station.FriedChicken, isEdited: true, againstTicketNumber: first.number });
-    expect(edited[0].addedItems.map((i) => i.name)).toEqual(['Chicken Wings']);
-    expect(edited[0].cancelledItems.map((i) => i.name)).toEqual(['Fried Chicken']);
+    expect(edited[0].id).toBe(first.id);
+    const saved = (await Ticket.findById(first.id))!;
+    expect(saved.number).toBe(first.number);
+    expect(saved.editedAt).toBeDefined();
+    expect(saved.deliveredAt).toBeUndefined();
+    expect(saved.items.map((i) => [i.name, i.change ?? null])).toEqual([
+      ['Fried Chicken', 'cancelled'],
+      ['Chicken Wings', 'added'],
+    ]);
+    // Other stations' cards are untouched
+    const juice = initial.find((k) => k.station !== Station.FriedChicken);
+    if (juice) expect((await Ticket.findById(juice.id))!.editedAt).toBeUndefined();
+  });
+
+  test('once the card is Ready, extra items come as a separate EXTRA ticket against it', async () => {
+    const { order, waiter } = await makeOrder([item('Fried Chicken', Station.FriedChicken)]);
+    const [first] = await TicketService.generateInitialTickets(order, order.items, waiter._id as any);
+    await Ticket.updateOne({ _id: first._id }, { status: TicketStatus.Ready });
+
+    const edited = await TicketService.generateEditedTickets(order, [item('Chicken Wings', Station.FriedChicken)], [], waiter._id as any);
+    expect(edited).toHaveLength(1);
+    expect(edited[0].id).not.toBe(first.id);
+    expect(edited[0]).toMatchObject({ isEdited: true, againstTicketNumber: first.number, status: TicketStatus.New });
+    expect(edited[0].items.map((i) => [i.name, i.change])).toEqual([['Chicken Wings', 'added']]);
+  });
+
+  test('a card with every item cancelled can be removed straight from New', async () => {
+    const { order, waiter } = await makeOrder([item('Fried Chicken', Station.FriedChicken)]);
+    const [first] = await TicketService.generateInitialTickets(order, order.items, waiter._id as any);
+    await TicketService.generateEditedTickets(order, [], [order.items[0]], waiter._id as any);
+    const removed = await TicketService.changeStatus(first.id, TicketStatus.Served, kitchen(Station.FriedChicken));
+    expect(removed.status).toBe(TicketStatus.Served);
   });
 });
 
@@ -231,13 +261,16 @@ describe('Cancelling an order', () => {
 
     expect((await call(order.id, cashier)).status).toBe(400);
 
+    await TicketService.generateInitialTickets(order, order.items);
     const r = await call(order.id, cashier, { reason: 'Customer left' });
     expect(r.status).toBe(200);
     const saved = (await Order.findById(order.id))!;
     expect(saved.status).toBe(OrderStatus.Cancelled);
     expect(saved.items.every((i) => i.status === ItemStatus.Cancelled)).toBe(true);
-    const edits = await Ticket.find({ orderId: order._id, isEdited: true });
-    expect(edits.map((k) => k.station).sort()).toEqual([Station.FriedChicken, Station.Juice]);
+    // Each station's card now shows its items struck out — no extra tickets
+    const cards = await Ticket.find({ orderId: order._id });
+    expect(cards.map((k) => k.station).sort()).toEqual([Station.FriedChicken, Station.Juice]);
+    expect(cards.every((k) => k.items.every((i) => i.change === 'cancelled'))).toBe(true);
   });
 
   test('a billed order cannot be cancelled here', async () => {

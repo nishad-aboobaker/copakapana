@@ -12,11 +12,13 @@ Each kitchen station (Fried Chicken, Juice Counter, Main Kitchen) has a screen t
 - **#014**: the ticket number. **Order #231**: the order number at the bottom.
 - **First · T7** = dine-in table; **TAKEAWAY · name**; **DELIVERY · name** (with phone).
 - The waiter's name and a **⏱ timer** since the ticket was sent. The card border turns **amber** when it's getting late and **red** when it's late.
-- **Red "EDITED" banner**: a change to an earlier ticket (shown as "vs #014").
-  - **ADD**: make these extra items.
-  - **CANCEL** (struck through): stop or don't make these.
+- **Orange "ORDER UPDATED" banner**: the waiter changed the order after it was sent. The change is on the **same card**, with no new ticket number:
+  - **Green line with a NEW tag**: added items. Make these too.
+  - **Red struck-out line with a CANCELLED tag**: stop or don't make this.
+- **Red "ALL ITEMS CANCELLED" banner**: the whole order was cancelled. Tap **REMOVE** to take the card off the screen.
+- **Red "EXTRA ITEMS · for #014" banner**: items added after you marked #014 **Ready**. They come as a small separate card so you don't miss them on a finished order.
 - **RESENT**: the cashier sent this ticket again.
-- New and edited tickets chime and flash the screen.
+- New tickets and order changes chime and flash the screen.
 
 ## 3. Working the orders
 Cards move left to right through three lanes:
